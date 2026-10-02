@@ -5,3 +5,6 @@ AccessModifierOffset: -4
 DerivePointerAlignment: false
 PointerAlignment: Left
 IncludeBlocks: Regroup
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
