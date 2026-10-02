@@ -1,0 +1,13 @@
+Checks: >
+  -*,
+  bugprone-*,
+  -bugprone-easily-swappable-parameters,
+  concurrency-*,
+  performance-*,
+  modernize-*,
+  -modernize-use-trailing-return-type,
+  misc-*,
+  -misc-non-private-member-variables-in-classes,
+  -misc-include-cleaner
+WarningsAsErrors: ''
+HeaderFilterRegex: '^.*/src/.*'
