@@ -2,25 +2,25 @@
 
 namespace pumpkin::core {
 
-void KvStore::set(const std::string& key, const std::string& value) {
-    data_[key] = value;
+void KvStore::set(const std::string& sz_Key, const std::string& sz_Value) {
+    m_umap_data[sz_Key] = sz_Value;
 }
 
-std::optional<std::string> KvStore::get(const std::string& key) const {
-    auto it = data_.find(key);
-    if (it == data_.end()) {
-        /* Key not found, return empty optional */
+std::optional<std::string> KvStore::get(const std::string& sz_Key) const {
+    auto it_Entry = m_umap_data.find(sz_Key);
+    if (it_Entry == m_umap_data.end()) {
+        // Key not found: return an empty optional.
         return std::nullopt;
     }
-    return it->second;
+    return it_Entry->second;
 }
 
-bool KvStore::remove(const std::string& key) {
-    return data_.erase(key) > 0;
+bool KvStore::remove(const std::string& sz_Key) {
+    return m_umap_data.erase(sz_Key) > 0;
 }
 
 std::size_t KvStore::size() const {
-    return data_.size();
+    return m_umap_data.size();
 }
 
 }  // namespace pumpkin::core

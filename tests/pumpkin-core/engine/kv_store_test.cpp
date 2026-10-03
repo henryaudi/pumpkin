@@ -7,82 +7,78 @@
 namespace pumpkin::core {
 namespace {
 
-// Test #1
 TEST(KvStore, GetMissingKeyReturnsNothing) {
-    KvStore store;
-    EXPECT_FALSE(store.get("missing").has_value());
+    KvStore obj_Store;
+    EXPECT_FALSE(obj_Store.get("missing").has_value());
 }
 
-// Test #2
 TEST(KvStore, SetThenGetReturnsValue) {
-    KvStore store;
-    store.set("name", "old");
-    store.set("name", "new");
-    EXPECT_EQ(store.get("name"), "new");
-    EXPECT_EQ(store.size(), 1U);
+    KvStore obj_Store;
+    obj_Store.set("name", "pumpkin");
+    EXPECT_EQ(obj_Store.get("name"), "pumpkin");
 }
 
-// Test #3
+TEST(KvStore, SetOverwritesExistingValue) {
+    KvStore obj_Store;
+    obj_Store.set("name", "old");
+    obj_Store.set("name", "new");
+    EXPECT_EQ(obj_Store.get("name"), "new");
+    EXPECT_EQ(obj_Store.size(), 1u);
+}
+
 TEST(KvStore, RemoveExistingKeyReturnsTrue) {
-    KvStore store;
-    store.set("name", "pumpkin");
-    EXPECT_TRUE(store.remove("name"));
-    EXPECT_FALSE(store.get("name").has_value());
+    KvStore obj_Store;
+    obj_Store.set("name", "pumpkin");
+    EXPECT_TRUE(obj_Store.remove("name"));
+    EXPECT_FALSE(obj_Store.get("name").has_value());
 }
 
-// Test #4
 TEST(KvStore, RemoveMissingKeyReturnsFalse) {
-    KvStore store;
-    EXPECT_FALSE(store.remove("missing"));
+    KvStore obj_Store;
+    EXPECT_FALSE(obj_Store.remove("missing"));
 }
 
-// Test #5
 TEST(KvStore, SizeCountsKeys) {
-    KvStore store;
-    EXPECT_EQ(store.size(), 0u);
-    store.set("a", "1");
-    store.set("b", "2");
-    EXPECT_EQ(store.size(), 2u);
-    store.remove("a");
-    EXPECT_EQ(store.size(), 1u);
+    KvStore obj_Store;
+    EXPECT_EQ(obj_Store.size(), 0u);
+    obj_Store.set("a", "1");
+    obj_Store.set("b", "2");
+    EXPECT_EQ(obj_Store.size(), 2u);
+    obj_Store.remove("a");
+    EXPECT_EQ(obj_Store.size(), 1u);
 }
 
-// Test #6
 TEST(KvStore, GetDoesNotCreateKey) {
-    KvStore store;
-    store.get("missing");
-    EXPECT_EQ(store.size(), 0u);
+    KvStore obj_Store;
+    obj_Store.get("missing");
+    EXPECT_EQ(obj_Store.size(), 0u);
 }
 
-// Test #7
 TEST(KvStore, KeysAreCaseSensitive) {
-    KvStore store;
-    store.set("Key", "upper");
-    store.set("key", "lower");
-    EXPECT_EQ(store.get("Key"), "upper");
-    EXPECT_EQ(store.get("key"), "lower");
+    KvStore obj_Store;
+    obj_Store.set("Key", "upper");
+    obj_Store.set("key", "lower");
+    EXPECT_EQ(obj_Store.get("Key"), "upper");
+    EXPECT_EQ(obj_Store.get("key"), "lower");
 }
 
-// Test #8
 TEST(KvStore, EmptyKeyAndEmptyValueAreAllowed) {
-    KvStore store;
-    store.set("", "");
-    EXPECT_EQ(store.get(""), "");
-    EXPECT_EQ(store.size(), 1u);
+    KvStore obj_Store;
+    obj_Store.set("", "");
+    EXPECT_EQ(obj_Store.get(""), "");
+    EXPECT_EQ(obj_Store.size(), 1u);
 }
 
-// Test #9
 TEST(KvStore, KeysAndValuesCanContainZeroBytes) {
-    KvStore store;
-    const std::string key("a\0b", 3);
-    const std::string value("x\0y", 3);
-    store.set(key, value);
+    KvStore obj_Store;
+    const std::string sz_Key("a\0b", 3);  // 3 bytes: 'a', '\0', 'b'
+    const std::string sz_Value("x\0y", 3);
+    obj_Store.set(sz_Key, sz_Value);
 
-    /* Ensure the key is stored as "a\0b" not just "a\0", and the value as "x\0y" not just "x\0" */
-    EXPECT_EQ(store.get(key), value);
-    EXPECT_FALSE(store.get("a").has_value());
+    // The key must be all 3 bytes "a\0b", not cut short to "a".
+    EXPECT_EQ(obj_Store.get(sz_Key), sz_Value);
+    EXPECT_FALSE(obj_Store.get("a").has_value());
 }
 
 }  // namespace
-
 }  // namespace pumpkin::core
