@@ -1,2 +1,3 @@
-# Pumpkin libraries are added here as they are created (first: kv store in feat/kv-store).
 add_subdirectory(pumpkin-core)
+add_subdirectory(pumpkin-middlewares)
+add_subdirectory(pumpkin-services)
