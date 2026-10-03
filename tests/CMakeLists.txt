@@ -1,9 +1,10 @@
 include(GoogleTest)
 
-add_executable(pumpkin_unit_tests
-    unit/smoke_test.cpp)
-target_link_libraries(pumpkin_unit_tests PRIVATE
+# ---- pumpkin-core-engine ----
+add_executable(pumpkin-core-engine-tests
+    pumpkin-core/engine/kv_store_test.cpp)
+target_link_libraries(pumpkin-core-engine-tests PRIVATE
+    pumpkin::core-engine
     pumpkin::warnings
     GTest::gtest_main)
-
-gtest_discover_tests(pumpkin_unit_tests)
+gtest_discover_tests(pumpkin-core-engine-tests)
