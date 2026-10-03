@@ -3,5 +3,5 @@ add_library(pumpkin-core-engine STATIC
     kv_store.cpp)
 add_library(pumpkin::core-engine ALIAS pumpkin-core-engine)
 
-target_include_directories(pumpkin-core-engine PUBLIC $(PROJECT_SOURCE_DIR)/src)
+target_include_directories(pumpkin-core-engine PUBLIC ${PROJECT_SOURCE_DIR}/src)
 target_link_libraries(pumpkin-core-engine PRIVATE pumpkin::warnings)
