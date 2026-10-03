@@ -1,7 +1,6 @@
 # pumpkin
 
-A simple, scalable in-memory key-value store, built step by step.
-See [the V1 plan](docs/pumpkin_v1_project_plan.md).
+A simple, scalable in-memory key-value store
 
 ## Build and test
 
@@ -15,7 +14,3 @@ ctest --preset debug
 ```
 
 Use `asan` instead of `debug` to run with AddressSanitizer + UBSan.
-
-## Workflow
-
-Branch from `dev` (`feat/*`, `fix/*`, `chore/*`) → PR into `dev` → promote to `stage` → release to `prod`.
