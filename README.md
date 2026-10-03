@@ -1,6 +1,6 @@
 # pumpkin
 
-A simple, scalable in-memory key-value store
+A simple, scalable in-memory multicore key-value store
 
 ## Build and test
 
