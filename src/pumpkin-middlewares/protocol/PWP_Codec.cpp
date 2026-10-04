@@ -31,7 +31,7 @@ namespace {
 // ================================================================================================
 
 /**
- * @brief Converts a string to uppercase in-place.
+ * @brief Converts a string to uppercase.
  *
  * @param sz_Text The string to convert to uppercase.
  *
@@ -156,11 +156,11 @@ ParseResult PWP_ParseCommand(const std::string& sz_Line) {
             return pwp_makeError("SET takes a key and a value");
         }
 
-        /* Note: the value is the remainder fo the line, which might include spaces */
+        /* Note: the value is the remainder of the line, which might include spaces */
         return pwp_makeCommand(CommandType::CMD_SET, sz_Key, sz_Tmp);
     }
 
-    return pwp_makeError("unknown command: '" + sz_Word + "'");
+    return pwp_makeError("Unknown command: '" + sz_Word + "'");
 }
 
 std::string PWP_EncodeReply(const Reply& str_Reply) {
