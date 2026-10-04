@@ -1,4 +1,4 @@
-#include "pumpkin-core/engine/kv_store.hpp"
+#include "pumpkin-core/engine/ENG_KvStore.hpp"
 
 #include <gtest/gtest.h>
 
@@ -70,7 +70,7 @@ TEST(KvStore, EmptyKeyAndEmptyValueAreAllowed) {
 }
 
 TEST(KvStore, KeysAndValuesCanContainZeroBytes) {
-    KvStore obj_Store;
+    KvStore           obj_Store;
     const std::string sz_Key("a\0b", 3);  // 3 bytes: 'a', '\0', 'b'
     const std::string sz_Value("x\0y", 3);
     obj_Store.set(sz_Key, sz_Value);

@@ -1,5 +1,5 @@
-#ifndef PUMPKIN_CORE_ENGINE_KV_STORE_HPP_
-#define PUMPKIN_CORE_ENGINE_KV_STORE_HPP_
+#ifndef PUMPKIN_ENG_KVSTORE_HPP_
+#define PUMPKIN_ENG_KVSTORE_HPP_
 
 #include <cstddef>
 #include <optional>
@@ -65,4 +65,4 @@ private:
 
 }  // namespace pumpkin::core
 
-#endif  // PUMPKIN_CORE_ENGINE_KV_STORE_HPP_
+#endif  // PUMPKIN_ENG_KVSTORE_HPP_
