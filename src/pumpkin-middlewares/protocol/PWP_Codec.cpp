@@ -124,7 +124,7 @@ std::optional<std::string> PWP_ExtractLine(std::string& sz_Buffer) {
     return sz_Line;
 }
 
-ParseResult PWP_ParseCommand(const std::string& sz_Line) {
+ParseResult PWP_ParseLine(const std::string& sz_Line) {
     std::string       sz_Tmp  = sz_Line;  // Temporary pointer to traverse the line.
     const std::string sz_Word = pwp_toUpper(pwp_popNextWord(sz_Tmp));
 

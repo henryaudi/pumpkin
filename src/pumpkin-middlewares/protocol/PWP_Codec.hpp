@@ -60,7 +60,7 @@ std::optional<std::string> PWP_ExtractLine(std::string& sz_Buffer);
  *
  * @return The command, or an error message describing what is wrong with the line.
  */
-ParseResult PWP_ParseCommand(const std::string& sz_Line);
+ParseResult PWP_ParseLine(const std::string& sz_Line);
 
 /**
  * @brief Converts a reply into the text sent to the client.
