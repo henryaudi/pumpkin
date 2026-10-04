@@ -1,3 +1,22 @@
+/**
+ ******************************************************************************
+ * @file    ENG_KvStore.cpp
+ * @author  Shangjie Zheng
+ * @brief   Key-value store (KvStore) implementation.
+ *          This file provides functions to:
+ *           + Store, look up and remove key-value pairs
+ *           + Count the stored keys
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2026 Shangjie Zheng.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ ******************************************************************************
+ */
+
 #include "pumpkin-core/engine/ENG_KvStore.hpp"
 
 namespace pumpkin::core {

@@ -1,17 +1,37 @@
-#ifndef PUMPKIN_PROTO_CODEC_HPP_
-#define PUMPKIN_PROTO_CODEC_HPP_
+/**
+ ******************************************************************************
+ * @file    PWP_Codec.hpp
+ * @author  Shangjie Zheng
+ * @brief   Pumpkin Wire Protocol (PWP) codec: public interface.
+ *          This file declares functions to:
+ *           + Extract complete lines from received bytes
+ *           + Parse a line into a Command
+ *           + Encode a Reply into text sent to the client
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2026 Shangjie Zheng.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ ******************************************************************************
+ */
+
+#ifndef PUMPKIN_PWP_CODEC_HPP_
+#define PUMPKIN_PWP_CODEC_HPP_
 
 #include <cstddef>
 #include <optional>
 #include <string>
 
-#include "pumpkin-middlewares/protocol/PROTO_Command.hpp"
-#include "pumpkin-middlewares/protocol/PROTO_Reply.hpp"
+#include "pumpkin-middlewares/protocol/PWP_Command.hpp"
+#include "pumpkin-middlewares/protocol/PWP_Reply.hpp"
 
 namespace pumpkin::middlewares {
 
 /* Longest line accepted in bytes. Longer inputs would result in connection closure */
-constexpr std::size_t PROTO_MAX_LINE_LENGTH = 64 * 1024;
+constexpr std::size_t PWP_MAX_LINE_LENGTH = 64 * 1024;
 
 struct ParseResult {
     std::optional<Command> opt_Command;
@@ -28,7 +48,7 @@ struct ParseResult {
  *
  * @return The line without its line ending, or std::nullopt if there is no complete line yet.
  */
-std::optional<std::string> PROTO_ExtractLine(std::string& sz_Buffer);
+std::optional<std::string> PWP_ExtractLine(std::string& sz_Buffer);
 
 /**
  * @brief Parses one line into a command.
@@ -40,7 +60,7 @@ std::optional<std::string> PROTO_ExtractLine(std::string& sz_Buffer);
  *
  * @return The command, or an error message describing what is wrong with the line.
  */
-ParseResult PROTO_ParseCommand(const std::string& sz_Line);
+ParseResult PWP_ParseCommand(const std::string& sz_Line);
 
 /**
  * @brief Converts a reply into the text sent to the client.
@@ -49,8 +69,8 @@ ParseResult PROTO_ParseCommand(const std::string& sz_Line);
  *
  * @return One line of text, including the trailing "\n".
  */
-std::string PROTO_EncodeReply(const Reply& str_Reply);
+std::string PWP_EncodeReply(const Reply& str_Reply);
 
 }  // namespace pumpkin::middlewares
 
-#endif  // PUMPKIN_PROTO_CODEC_HPP_
+#endif  // PUMPKIN_PWP_CODEC_HPP_

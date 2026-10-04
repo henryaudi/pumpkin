@@ -1,5 +1,24 @@
-#ifndef PUMPKIN_PROTO_COMMAND_HPP_
-#define PUMPKIN_PROTO_COMMAND_HPP_
+/**
+ ******************************************************************************
+ * @file    PWP_Command.hpp
+ * @author  Shangjie Zheng
+ * @brief   Pumpkin Wire Protocol (PWP) command types.
+ *          This file defines:
+ *           + CommandType: the commands Pumpkin understands
+ *           + Command: a parsed client request
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2026 Shangjie Zheng.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ ******************************************************************************
+ */
+
+#ifndef PUMPKIN_PWP_COMMAND_HPP_
+#define PUMPKIN_PWP_COMMAND_HPP_
 
 #include <string>
 
@@ -21,4 +40,4 @@ struct Command {
 
 }  // namespace pumpkin::middlewares
 
-#endif  // PUMPKIN_PROTO_COMMAND_HPP_
+#endif  // PUMPKIN_PWP_COMMAND_HPP_

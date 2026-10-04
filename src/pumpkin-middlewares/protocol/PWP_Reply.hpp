@@ -1,5 +1,24 @@
-#ifndef PUMPKIN_PROTO_REPLY_HPP_
-#define PUMPKIN_PROTO_REPLY_HPP_
+/**
+ ******************************************************************************
+ * @file    PWP_Reply.hpp
+ * @author  Shangjie Zheng
+ * @brief   Pumpkin Wire Protocol (PWP) reply types.
+ *          This file defines:
+ *           + ReplyType: the kinds of reply a command can produce
+ *           + Reply: the result of a command
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2026 Shangjie Zheng.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ ******************************************************************************
+ */
+
+#ifndef PUMPKIN_PWP_REPLY_HPP_
+#define PUMPKIN_PWP_REPLY_HPP_
 
 #include <cstdint>
 #include <string>
@@ -19,4 +38,4 @@ struct Reply {
 
 }  // namespace pumpkin::middlewares
 
-#endif  // PUMPKIN_PROTO_REPLY_HPP_
+#endif  // PUMPKIN_PWP_REPLY_HPP_

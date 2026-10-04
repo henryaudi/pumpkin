@@ -1,3 +1,22 @@
+/**
+ ******************************************************************************
+ * @file    ENG_KvStore.hpp
+ * @author  Shangjie Zheng
+ * @brief   Key-value store (KvStore) for one shard: public interface.
+ *          This file declares functions to:
+ *           + Store, look up and remove key-value pairs
+ *           + Count the stored keys
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2026 Shangjie Zheng.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ ******************************************************************************
+ */
+
 #ifndef PUMPKIN_ENG_KVSTORE_HPP_
 #define PUMPKIN_ENG_KVSTORE_HPP_
 

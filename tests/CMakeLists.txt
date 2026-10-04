@@ -12,7 +12,7 @@ gtest_discover_tests(pumpkin-core-engine-tests)
 
 # ---- pumpkin-middlewares-protocol ----
 add_executable(pumpkin-middlewares-protocol-tests
-    pumpkin-middlewares/protocol/PROTO_CodecTest.cpp)
+    pumpkin-middlewares/protocol/PWP_CodecTest.cpp)
 target_link_libraries(pumpkin-middlewares-protocol-tests PRIVATE
     pumpkin::middlewares-protocol
     pumpkin::warnings
@@ -21,7 +21,7 @@ gtest_discover_tests(pumpkin-middlewares-protocol-tests)
 
 # ---- pumpkin-middlewares-dispatch ----
 add_executable(pumpkin-middlewares-dispatch-tests
-    pumpkin-middlewares/dispatch/DISP_DispatcherTest.cpp)
+    pumpkin-middlewares/dispatch/CDE_DispatcherTest.cpp)
 target_link_libraries(pumpkin-middlewares-dispatch-tests PRIVATE
     pumpkin::middlewares-dispatch
     pumpkin::warnings

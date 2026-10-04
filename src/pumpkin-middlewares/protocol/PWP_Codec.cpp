@@ -1,4 +1,24 @@
-#include "pumpkin-middlewares/protocol/PROTO_Codec.hpp"
+/**
+ ******************************************************************************
+ * @file    PWP_Codec.cpp
+ * @author  Shangjie Zheng
+ * @brief   Pumpkin Wire Protocol (PWP) codec.
+ *          This file provides functions to:
+ *           + Extract complete lines from received bytes
+ *           + Parse a line into a Command
+ *           + Encode a Reply into text sent to the client
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2026 Shangjie Zheng.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ ******************************************************************************
+ */
+
+#include "pumpkin-middlewares/protocol/PWP_Codec.hpp"
 
 #include <cctype>
 #include <string>
@@ -17,7 +37,7 @@ namespace {
  *
  * @return The uppercase version of the input string.
  */
-std::string proto_toUpper(std::string sz_Text) {
+std::string pwp_toUpper(std::string sz_Text) {
     for (char& ch_Char : sz_Text) {
         ch_Char = static_cast<char>(std::toupper(static_cast<unsigned char>(ch_Char)));
     }
@@ -32,7 +52,7 @@ std::string proto_toUpper(std::string sz_Text) {
  *
  * @return The extracted word. If no word is found, returns an empty string.
  */
-std::string proto_popNextWord(std::string& sz_Text) {
+std::string pwp_popNextWord(std::string& sz_Text) {
     const std::size_t siz_StartIdx = sz_Text.find_first_not_of(' ');
     if (siz_StartIdx == std::string::npos) {
         /*  No non-space characters found, clear the string buffer and return empty string */
@@ -61,7 +81,7 @@ std::string proto_popNextWord(std::string& sz_Text) {
  *
  * @return A ParseResult object with the error message set.
  */
-ParseResult proto_makeError(const std::string& sz_Message) {
+ParseResult pwp_makeError(const std::string& sz_Message) {
     ParseResult str_Result;
     str_Result.sz_Error = sz_Message;
     return str_Result;
@@ -76,8 +96,8 @@ ParseResult proto_makeError(const std::string& sz_Message) {
  *
  * @return A ParseResult object with the command set.
  */
-ParseResult proto_makeCommand(CommandType enm_Type, const std::string& sz_Key,
-                              const std::string& sz_Value) {
+ParseResult pwp_makeCommand(CommandType enm_Type, const std::string& sz_Key,
+                            const std::string& sz_Value) {
     ParseResult str_Result;
     str_Result.opt_Command = Command{enm_Type, sz_Key, sz_Value};
     return str_Result;
@@ -87,7 +107,7 @@ ParseResult proto_makeCommand(CommandType enm_Type, const std::string& sz_Key,
 // ================================================================================================
 // GLOBAL SCOPE
 // ================================================================================================
-std::optional<std::string> PROTO_ExtractLine(std::string& sz_Buffer) {
+std::optional<std::string> PWP_ExtractLine(std::string& sz_Buffer) {
     const std::size_t siz_LineLen = sz_Buffer.find('\n');
     if (siz_LineLen == std::string::npos) {
         return std::nullopt;
@@ -104,46 +124,46 @@ std::optional<std::string> PROTO_ExtractLine(std::string& sz_Buffer) {
     return sz_Line;
 }
 
-ParseResult PROTO_ParseCommand(const std::string& sz_Line) {
+ParseResult PWP_ParseCommand(const std::string& sz_Line) {
     std::string       sz_Tmp  = sz_Line;  // Temporary pointer to traverse the line.
-    const std::string sz_Word = proto_toUpper(proto_popNextWord(sz_Tmp));
+    const std::string sz_Word = pwp_toUpper(pwp_popNextWord(sz_Tmp));
 
     if (sz_Word.empty()) {
-        return proto_makeError("Empty command");
+        return pwp_makeError("Empty command");
     }
 
     if (sz_Word == "PING") {
         if (!sz_Tmp.empty()) {
-            return proto_makeError("PING takes no arguments");
+            return pwp_makeError("PING takes no arguments");
         }
-        return proto_makeCommand(CommandType::CMD_PING, "", "");
+        return pwp_makeCommand(CommandType::CMD_PING, "", "");
     }
 
     if (sz_Word == "GET" || sz_Word == "DEL") {
-        const std::string sz_Key = proto_popNextWord(sz_Tmp);
+        const std::string sz_Key = pwp_popNextWord(sz_Tmp);
         if (sz_Key.empty() || !sz_Tmp.empty()) {  // If the key is empty or extra args
-            return proto_makeError(sz_Word + " takes exactly one key");
+            return pwp_makeError(sz_Word + " takes exactly one key");
         }
 
         const CommandType enm_Type =
             (sz_Word == "GET") ? CommandType::CMD_GET : CommandType::CMD_DEL;
-        return proto_makeCommand(enm_Type, sz_Key, "");
+        return pwp_makeCommand(enm_Type, sz_Key, "");
     }
 
     if (sz_Word == "SET") {
-        const std::string sz_Key = proto_popNextWord(sz_Tmp);
+        const std::string sz_Key = pwp_popNextWord(sz_Tmp);
         if (sz_Key.empty() || sz_Tmp.empty()) {  // If the key or value is missing
-            return proto_makeError("SET takes a key and a value");
+            return pwp_makeError("SET takes a key and a value");
         }
 
         /* Note: the value is the remainder fo the line, which might include spaces */
-        return proto_makeCommand(CommandType::CMD_SET, sz_Key, sz_Tmp);
+        return pwp_makeCommand(CommandType::CMD_SET, sz_Key, sz_Tmp);
     }
 
-    return proto_makeError("unknown command: '" + sz_Word + "'");
+    return pwp_makeError("unknown command: '" + sz_Word + "'");
 }
 
-std::string PROTO_EncodeReply(const Reply& str_Reply) {
+std::string PWP_EncodeReply(const Reply& str_Reply) {
     switch (str_Reply.enm_Type) {
         case ReplyType::REPLY_OK:
             return "OK\n";

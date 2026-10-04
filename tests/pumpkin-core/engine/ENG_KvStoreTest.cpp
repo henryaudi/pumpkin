@@ -1,3 +1,22 @@
+/**
+ ******************************************************************************
+ * @file    ENG_KvStoreTest.cpp
+ * @author  Shangjie Zheng
+ * @brief   Unit tests for the key-value store (KvStore).
+ *          This file tests:
+ *           + set / get / remove / size behaviour
+ *           + Edge cases: empty keys and values, zero bytes, case sensitivity
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2026 Shangjie Zheng.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ ******************************************************************************
+ */
+
 #include "pumpkin-core/engine/ENG_KvStore.hpp"
 
 #include <gtest/gtest.h>
