@@ -13,8 +13,8 @@ enum class ReplyType { REPLY_OK, REPLY_PONG, REPLY_VALUE, REPLY_NIL, REPLY_INTEG
 
 struct Reply {
     ReplyType    enm_Type = ReplyType::REPLY_OK;
-    std::string  text;
-    std::int64_t integer = 0;
+    std::string  sz_Text;
+    std::int64_t s64_Integer = 0;
 };
 
 }  // namespace pumpkin::middlewares
