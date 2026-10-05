@@ -17,12 +17,12 @@
  ******************************************************************************
  */
 
-#include "pumpkin-middlewares/dispatch/CDE_Dispatcher.hpp"
+#include "middlewares/pump-mid-cde/CDE_Dispatcher.hpp"
 
 #include <optional>
 #include <string>
 
-#include "pumpkin-middlewares/protocol/PWP_Codec.hpp"
+#include "middlewares/pump-mid-pwp/PWP_Codec.hpp"
 
 namespace pumpkin::middlewares {
 

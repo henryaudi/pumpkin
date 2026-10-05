@@ -1,3 +1,3 @@
-add_subdirectory(pumpkin-core)
-add_subdirectory(pumpkin-middlewares)
-add_subdirectory(pumpkin-services)
+add_subdirectory(core)
+add_subdirectory(middlewares)
+add_subdirectory(services)

@@ -1,39 +1,39 @@
 include(GoogleTest)
 find_package(Threads REQUIRED)
 
-# ---- pumpkin-core-engine ----
-add_executable(pumpkin-core-engine-tests
-    pumpkin-core/engine/ENG_KvStoreTest.cpp)
-target_link_libraries(pumpkin-core-engine-tests PRIVATE
-    pumpkin::core-engine
+# ---- pump-core-eng ----
+add_executable(pump-core-eng-tests
+    core/pump-core-eng/ENG_KvStoreTest.cpp)
+target_link_libraries(pump-core-eng-tests PRIVATE
+    pump::core-eng
     pumpkin::warnings
     GTest::gtest_main)
-gtest_discover_tests(pumpkin-core-engine-tests)
+gtest_discover_tests(pump-core-eng-tests)
 
-# ---- pumpkin-middlewares-protocol ----
-add_executable(pumpkin-middlewares-protocol-tests
-    pumpkin-middlewares/protocol/PWP_CodecTest.cpp)
-target_link_libraries(pumpkin-middlewares-protocol-tests PRIVATE
-    pumpkin::middlewares-protocol
+# ---- pump-mid-pwp ----
+add_executable(pump-mid-pwp-tests
+    middlewares/pump-mid-pwp/PWP_CodecTest.cpp)
+target_link_libraries(pump-mid-pwp-tests PRIVATE
+    pump::mid-pwp
     pumpkin::warnings
     GTest::gtest_main)
-gtest_discover_tests(pumpkin-middlewares-protocol-tests)
+gtest_discover_tests(pump-mid-pwp-tests)
 
-# ---- pumpkin-middlewares-dispatch ----
-add_executable(pumpkin-middlewares-dispatch-tests
-    pumpkin-middlewares/dispatch/CDE_DispatcherTest.cpp)
-target_link_libraries(pumpkin-middlewares-dispatch-tests PRIVATE
-    pumpkin::middlewares-dispatch
+# ---- pump-mid-cde ----
+add_executable(pump-mid-cde-tests
+    middlewares/pump-mid-cde/CDE_DispatcherTest.cpp)
+target_link_libraries(pump-mid-cde-tests PRIVATE
+    pump::mid-cde
     pumpkin::warnings
     GTest::gtest_main)
-gtest_discover_tests(pumpkin-middlewares-dispatch-tests)
+gtest_discover_tests(pump-mid-cde-tests)
 
-# ---- pumpkin-services-network (real TCP on 127.0.0.1) ----
-add_executable(pumpkin-services-network-tests
-    pumpkin-services/network/NET_TcpServerTest.cpp)
-target_link_libraries(pumpkin-services-network-tests PRIVATE
-    pumpkin::services-network
+# ---- pump-srv-net (real TCP on 127.0.0.1) ----
+add_executable(pump-srv-net-tests
+    services/pump-srv-net/NET_TcpServerTest.cpp)
+target_link_libraries(pump-srv-net-tests PRIVATE
+    pump::srv-net
     pumpkin::warnings
     GTest::gtest_main
     Threads::Threads)
-gtest_discover_tests(pumpkin-services-network-tests)
+gtest_discover_tests(pump-srv-net-tests)

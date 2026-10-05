@@ -17,7 +17,7 @@
  ******************************************************************************
  */
 
-#include "pumpkin-core/engine/ENG_KvStore.hpp"
+#include "core/pump-core-eng/ENG_KvStore.hpp"
 
 #include <gtest/gtest.h>
 

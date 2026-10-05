@@ -18,7 +18,7 @@
  ******************************************************************************
  */
 
-#include "pumpkin-services/network/NET_TcpServer.hpp"
+#include "services/pump-srv-net/NET_TcpServer.hpp"
 
 #include <arpa/inet.h>
 #include <fcntl.h>
@@ -35,8 +35,8 @@
 #include <optional>
 #include <vector>
 
-#include "pumpkin-middlewares/dispatch/CDE_Dispatcher.hpp"
-#include "pumpkin-middlewares/protocol/PWP_Codec.hpp"
+#include "middlewares/pump-mid-cde/CDE_Dispatcher.hpp"
+#include "middlewares/pump-mid-pwp/PWP_Codec.hpp"
 
 namespace pumpkin::services {
 
@@ -114,6 +114,7 @@ bool TcpServer::start() {
        by default. Ignore it (SIG_IGN), so send() just returns with an error instead */
     std::signal(SIGPIPE, SIG_IGN);
 
+    /* Create the listening socket (IPv4, TCP) */
     m_fd_listen = socket(AF_INET, SOCK_STREAM, 0);
     if (m_fd_listen == -1) {
         net_printError("socket");

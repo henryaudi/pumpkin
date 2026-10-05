@@ -25,8 +25,8 @@
 #include <optional>
 #include <string>
 
-#include "pumpkin-middlewares/protocol/PWP_Command.hpp"
-#include "pumpkin-middlewares/protocol/PWP_Reply.hpp"
+#include "middlewares/pump-mid-pwp/PWP_Command.hpp"
+#include "middlewares/pump-mid-pwp/PWP_Reply.hpp"
 
 namespace pumpkin::middlewares {
 

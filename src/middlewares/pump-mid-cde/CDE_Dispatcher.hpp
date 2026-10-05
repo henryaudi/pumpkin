@@ -22,9 +22,9 @@
 
 #include <string>
 
-#include "pumpkin-core/engine/ENG_KvStore.hpp"
-#include "pumpkin-middlewares/protocol/PWP_Command.hpp"
-#include "pumpkin-middlewares/protocol/PWP_Reply.hpp"
+#include "core/pump-core-eng/ENG_KvStore.hpp"
+#include "middlewares/pump-mid-pwp/PWP_Command.hpp"
+#include "middlewares/pump-mid-pwp/PWP_Reply.hpp"
 
 namespace pumpkin::middlewares {
 

@@ -18,7 +18,7 @@
  ******************************************************************************
  */
 
-#include "pumpkin-middlewares/protocol/PWP_Codec.hpp"
+#include "middlewares/pump-mid-pwp/PWP_Codec.hpp"
 
 #include <cctype>
 #include <string>

@@ -1,2 +1,2 @@
 add_executable(pumpkin-server pumpkin-server/main.cpp)
-target_link_libraries(pumpkin-server PRIVATE pumpkin::services-network pumpkin::warnings)
+target_link_libraries(pumpkin-server PRIVATE pump::srv-net pumpkin::warnings)
