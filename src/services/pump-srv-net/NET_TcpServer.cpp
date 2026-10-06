@@ -214,7 +214,7 @@ void TcpServer::run() {
             if (bol_KeepOpen && !str_Connection.sz_WriteBuffer.empty()) {
                 bol_KeepOpen = writeTo(str_PollFd.fd, str_Connection);
             }
-            if (bol_KeepOpen) {
+            if (!bol_KeepOpen) {
                 vec_SocketsToClose.push_back(str_PollFd.fd);
             }
         }
