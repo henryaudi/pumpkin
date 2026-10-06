@@ -73,7 +73,7 @@ void net_printError(const std::string& sz_ErrOp) {
 bool net_setSocketNonBlocking(int fd_Socket) {
     /* Get the current socket status flags*/
     const int int_Flags = fcntl(fd_Socket, F_GETFL, 0);
-    if (int_Flags == -1) {
+    if (int_Flags < 0) {
         return false;
     }
 
@@ -116,14 +116,14 @@ bool TcpServer::start() {
 
     /* Create the listening socket (IPv4, TCP) */
     m_fd_listen = socket(AF_INET, SOCK_STREAM, 0);
-    if (m_fd_listen == -1) {
+    if (m_fd_listen < 0) {
         net_printError("socket");
         return false;
     }
 
     /* Allow restarting the server right away on the same port */
     const int int_Enable = 1;
-    if (setsockopt(m_fd_listen, SOL_SOCKET, SO_REUSEADDR, &int_Enable, sizeof(int_Enable)) == -1) {
+    if (setsockopt(m_fd_listen, SOL_SOCKET, SO_REUSEADDR, &int_Enable, sizeof(int_Enable)) < 0) {
         net_printError("setsockopt");
         return false;
     }
@@ -133,13 +133,13 @@ bool TcpServer::start() {
     str_Address.sin_family = AF_INET;  // IPv4
     str_Address.sin_port   = htons(m_u16_port);
     inet_pton(AF_INET, NET_DEFAULT_IP, &str_Address.sin_addr);
-    if (bind(m_fd_listen, reinterpret_cast<sockaddr*>(&str_Address), sizeof(str_Address)) == -1) {
+    if (bind(m_fd_listen, reinterpret_cast<sockaddr*>(&str_Address), sizeof(str_Address)) < 0) {
         net_printError("bind");
         return false;
     }
 
     /* Start listening for incoming connections */
-    if (listen(m_fd_listen, SOMAXCONN) == -1) {
+    if (listen(m_fd_listen, SOMAXCONN) < 0) {
         net_printError("listen");
         return false;
     }
@@ -152,11 +152,174 @@ bool TcpServer::start() {
 
     /* Get port number bound to the socket */
     socklen_t u32_Length = sizeof(str_Address);
-    if (getsockname(m_fd_listen, reinterpret_cast<sockaddr*>(&str_Address), &u32_Length) == -1) {
+    if (getsockname(m_fd_listen, reinterpret_cast<sockaddr*>(&str_Address), &u32_Length) < 0) {
         net_printError("getsockname");
         return false;
     }
     m_u16_port = ntohs(str_Address.sin_port);
     return true;
 }
+
+void TcpServer::run() {
+    while (!m_atm_stopRequested) {
+        /* Build the list of sockets to watch */
+        std::vector<pollfd> vec_PollFds;
+        vec_PollFds.push_back(pollfd{m_fd_listen, POLLIN, 0});
+        for (const auto& pair_Entry : m_map_connections) {
+            const Connection& str_Connection = pair_Entry.second;
+            int               int_Events     = 0;
+
+            /* If unsent replies are below the limit, ask poll() to notify us when the client sends
+               more commands. Otherwise stop reading until it catches up (backpressure) */
+            if (str_Connection.sz_WriteBuffer.size() < NET_MAX_WRITE_BUFFER) {
+                int_Events |= POLLIN;
+            }
+            /* If there's still content in the write buffer, ask poll() to tell us when the socket
+               can send without waiting */
+            if (!str_Connection.sz_WriteBuffer.empty()) {
+                int_Events |= POLLOUT;
+            }
+            /* Add this connection to the list of sockets to watch */
+            vec_PollFds.push_back(pollfd{pair_Entry.first, static_cast<short>(int_Events), 0});
+        }
+
+        /* Sleep until a socket is ready or the timeout passes */
+        const int int_Ready =
+            poll(vec_PollFds.data(), static_cast<nfds_t>(vec_PollFds.size()), NET_POLL_TIMEOUT_MS);
+        if (int_Ready < 0) {
+            if (errno == EINTR) {
+                continue;  // Interrupted by signal, retry poll()
+            }
+            net_printError("poll");
+            return;  // Exit the run loop on poll error
+        }
+
+        /* Handle ready sockets */
+        std::vector<int> vec_SocketsToClose;
+        for (const pollfd& str_PollFd : vec_PollFds) {
+            if (str_PollFd.revents == 0) {
+                continue;
+            }
+            if (str_PollFd.fd == m_fd_listen) {
+                acceptConnections();
+                continue;
+            }
+
+            Connection& str_Connection = m_map_connections.at(str_PollFd.fd);
+            bool        bol_KeepOpen   = (str_PollFd.revents & (POLLERR | POLLNVAL)) == 0;
+
+            if (bol_KeepOpen && (str_PollFd.revents & (POLLIN | POLLHUP)) != 0) {
+                bol_KeepOpen = readFrom(str_PollFd.fd, str_Connection);
+            }
+            if (bol_KeepOpen && !str_Connection.sz_WriteBuffer.empty()) {
+                bol_KeepOpen = writeTo(str_PollFd.fd, str_Connection);
+            }
+            if (bol_KeepOpen) {
+                vec_SocketsToClose.push_back(str_PollFd.fd);
+            }
+        }
+
+        for (const int fd_Client : vec_SocketsToClose) {
+            closeConnection(fd_Client);
+        }
+    }
+}
+
+void TcpServer::stop() {
+    m_atm_stopRequested = true;
+}
+
+std::uint16_t TcpServer::port() const {
+    return m_u16_port;
+}
+
+// ================================================================================================
+// PRIVATE SCOPE
+// ================================================================================================
+void TcpServer::acceptConnections() {
+    /* Several clients may be waiting to connect, accept til there are none left */
+    while (true) {
+        const int fd_Client = accept(m_fd_listen, nullptr, nullptr);
+
+        if (fd_Client < 0) {
+            if (!net_isTryAgain()) {
+                net_printError("accept");
+            }
+            return;
+        }
+
+        if (!net_setSocketNonBlocking(fd_Client)) {
+            net_printError("fcntl");
+            close(fd_Client);
+            return;
+        }
+
+        /* Successfully accepted and configured a new client socket */
+        m_map_connections[fd_Client] = Connection{};
+    }
+}
+
+bool TcpServer::readFrom(int fd_Client, Connection& str_Connection) {
+    std::array<char, NET_READ_CHUNK_SIZE> arr_Chunks;
+    const ssize_t ssiz_Received = recv(fd_Client, &arr_Chunks[0], arr_Chunks.size(), 0);
+    if (ssiz_Received == 0) {
+        return false;  // the client has closed the connection
+    }
+    if (ssiz_Received < 0) {
+        return net_isTryAgain();
+    }
+
+    /* Append the received data to the connection's read buffer */
+    str_Connection.sz_ReadBuffer.append(arr_Chunks.data(), static_cast<std::size_t>(ssiz_Received));
+
+    /* Process any complete lines that have been received per write buffer allows */
+    processPendingLines(str_Connection);
+
+    /* Bytes after the last newline are unfinished line. If it is already too long, drop this client
+       (complete lines that are only waiting for write-buffer space don't count) */
+    const std::size_t siz_LastNewLineIdx = str_Connection.sz_ReadBuffer.rfind('\n');
+    const std::size_t siz_Unfinished =
+        (siz_LastNewLineIdx == std::string::npos)
+            ? str_Connection.sz_ReadBuffer.size()
+            : str_Connection.sz_ReadBuffer.size() - (siz_LastNewLineIdx + 1);
+
+    return siz_Unfinished <= middlewares::PWP_MAX_LINE_LENGTH;
+}
+
+bool TcpServer::writeTo(int fd_Client, Connection& str_Connection) {
+    const ssize_t ssiz_Sent = send(fd_Client, str_Connection.sz_WriteBuffer.data(),
+                                   str_Connection.sz_WriteBuffer.size(), 0);
+    if (ssiz_Sent < 0) {
+        return net_isTryAgain();
+    }
+
+    /* send() may accept only part of the data: drop what was sent, keep the rest */
+    str_Connection.sz_WriteBuffer.erase(0, static_cast<std::size_t>(ssiz_Sent));
+
+    /* send() freed space in the write buffer: run any commands still waiting in the read buffer
+       and queue their replies */
+    processPendingLines(str_Connection);
+
+    return true;
+}
+
+void TcpServer::processPendingLines(Connection& str_Connection) {
+    /* Answer complete lines until no line is left, or until the unsent replies reach the limit.
+       Lines not answered yet stay in sz_ReadBuffer until writeTo() free space. */
+    while (str_Connection.sz_WriteBuffer.size() < NET_MAX_WRITE_BUFFER) {
+        const std::optional<std::string> opt_Line =
+            middlewares::PWP_ExtractLine(str_Connection.sz_ReadBuffer);
+        if (!opt_Line.has_value()) {
+            return;
+        }
+        str_Connection.sz_WriteBuffer +=
+            middlewares::CDE_ProcessLine(opt_Line.value(), m_obj_store);
+    }
+}
+
+void TcpServer::closeConnection(int fd_Client) {
+    close(fd_Client);  // close the socket file descriptor
+    m_map_connections.erase(fd_Client);
+}
+
 }  // namespace pumpkin::services

@@ -44,6 +44,9 @@ public:
      */
     ~TcpServer();
 
+    TcpServer(const TcpServer&)            = delete;
+    TcpServer& operator=(const TcpServer&) = delete;
+
     /**
      * @brief Opens the listening socket.
      *
@@ -77,6 +80,7 @@ private:
     void acceptConnections();
     bool readFrom(int fd_Client, Connection& str_Connection);
     bool writeTo(int fd_Client, Connection& str_Connection);
+    void processPendingLines(Connection& str_Connection);
     void closeConnection(int fd_Client);
 
     std::uint16_t             m_u16_port;
