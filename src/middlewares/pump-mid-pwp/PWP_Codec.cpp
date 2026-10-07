@@ -30,6 +30,8 @@ namespace {
 // PRIVATE SCOPE
 // ================================================================================================
 
+constexpr char PWP_WHITESPACE[] = " \t";
+
 /**
  * @brief Converts a string to uppercase.
  *
@@ -42,6 +44,22 @@ std::string pwp_toUpper(std::string sz_Text) {
         ch_Char = static_cast<char>(std::toupper(static_cast<unsigned char>(ch_Char)));
     }
     return sz_Text;
+}
+
+/**
+ * @brief Returns a copy of the text without leading and trailing whitespace.
+ *
+ * @param sz_Text The text to trim.
+ *
+ * @return The trimmed text, or an empty string if the text is only whitespace.
+ */
+std::string pwp_trim(const std::string& sz_Text) {
+    const std::size_t siz_FirstIdx = sz_Text.find_first_not_of(PWP_WHITESPACE);
+    if (siz_FirstIdx == std::string::npos) {
+        return "";
+    }
+    const std::size_t siz_LastIdx = sz_Text.find_last_not_of(PWP_WHITESPACE);
+    return sz_Text.substr(siz_FirstIdx, siz_LastIdx - siz_FirstIdx + 1);
 }
 
 /**
@@ -125,7 +143,7 @@ std::optional<std::string> PWP_ExtractLine(std::string& sz_Buffer) {
 }
 
 ParseResult PWP_ParseLine(const std::string& sz_Line) {
-    std::string       sz_Tmp  = sz_Line;  // Temporary pointer to traverse the line.
+    std::string       sz_Tmp  = pwp_trim(sz_Line);
     const std::string sz_Word = pwp_toUpper(pwp_popNextWord(sz_Tmp));
 
     if (sz_Word.empty()) {
