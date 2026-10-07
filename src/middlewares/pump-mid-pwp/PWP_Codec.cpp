@@ -59,6 +59,7 @@ std::string pwp_trim(const std::string& sz_Text) {
         return "";
     }
     const std::size_t siz_LastIdx = sz_Text.find_last_not_of(PWP_WHITESPACE);
+
     return sz_Text.substr(siz_FirstIdx, siz_LastIdx - siz_FirstIdx + 1);
 }
 
@@ -73,11 +74,11 @@ std::string pwp_trim(const std::string& sz_Text) {
 std::string pwp_popNextWord(std::string& sz_Text) {
     const std::size_t siz_StartIdx = sz_Text.find_first_not_of(' ');
     if (siz_StartIdx == std::string::npos) {
-        /*  No non-space characters found, clear the string buffer and return empty string */
         sz_Text.clear();
         return "";
     }
 
+    /* Find the space right after the last char of the word. */
     const std::size_t siz_EndIdx = sz_Text.find(' ', siz_StartIdx);
     if (siz_EndIdx == std::string::npos) {
         /*  No more spaces found, take the rest of the string as the word */
@@ -88,7 +89,15 @@ std::string pwp_popNextWord(std::string& sz_Text) {
 
     /*  Extract the word between siz_StartIdx and siz_EndIdx */
     std::string sz_Word = sz_Text.substr(siz_StartIdx, siz_EndIdx - siz_StartIdx);
-    sz_Text.erase(0, siz_EndIdx + 1);
+
+    /* Skip all white space after the word, so the text now starts at the next word or empty. */
+    const std::size_t siz_NextIdx = sz_Text.find_first_not_of(PWP_WHITESPACE, siz_EndIdx);
+    if (siz_NextIdx == std::string::npos) {
+        sz_Text.clear();
+    } else {
+        sz_Text.erase(0, siz_NextIdx);
+    }
+
     return sz_Word;
 }
 
