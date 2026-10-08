@@ -10,8 +10,9 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - run: sudo apt-get update && sudo apt-get install -y clang-format-18
-      - run: git ls-files '*.cpp' '*.hpp' | xargs clang-format-18 --dry-run --Werror
+      # Same clang-format version as local development, so both format identically.
+      - run: pip install clang-format==22.1.1
+      - run: git ls-files '*.cpp' '*.hpp' | xargs clang-format --dry-run --Werror
 
   build:
     strategy:
