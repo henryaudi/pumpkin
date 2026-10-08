@@ -22,6 +22,7 @@
 
 #include <cctype>
 #include <string>
+#include <vector>
 
 namespace pumpkin::middlewares {
 
