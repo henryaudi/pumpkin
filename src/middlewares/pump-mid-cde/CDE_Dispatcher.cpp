@@ -34,17 +34,19 @@ Reply CDE_ExecuteCommand(const Command& str_Command, core::KvStore& obj_Store) {
         case CommandType::CMD_PING:
             return Reply{ReplyType::REPLY_PONG, "", 0};
         case CommandType::CMD_SET:
-            obj_Store.set(str_Command.sz_Key, str_Command.sz_Value);
+            for (std::size_t siz_Idx = 0; siz_Idx < str_Command.vec_Args.size(); siz_Idx += 2) {
+                obj_Store.set(str_Command.vec_Args[siz_Idx], str_Command.vec_Args[siz_Idx + 1]);
+            }
             return Reply{ReplyType::REPLY_OK, "", 0};
         case CommandType::CMD_GET: {
-            const std::optional<std::string> opt_Value = obj_Store.get(str_Command.sz_Key);
+            const std::optional<std::string> opt_Value = obj_Store.get(str_Command.vec_Args[0]);
             if (!opt_Value.has_value()) {
                 return Reply{ReplyType::REPLY_NIL, "", 0};
             }
             return Reply{ReplyType::REPLY_VALUE, opt_Value.value(), 0};
         }
         case CommandType::CMD_DEL:
-            const bool bol_Removed = obj_Store.remove(str_Command.sz_Key);
+            const bool bol_Removed = obj_Store.remove(str_Command.vec_Args[0]);
             /* Return the number of keys removed */
             return Reply{ReplyType::REPLY_INTEGER, "", bol_Removed ? 1 : 0};
     }

@@ -145,38 +145,39 @@ std::optional<std::string> PWP_ExtractLine(std::string& sz_Buffer) {
 
 ParseResult PWP_ParseLine(const std::string& sz_Line) {
     std::string       sz_Tmp  = pwp_trim(sz_Line);
-    const std::string sz_Word = pwp_toUpper(pwp_popNextWord(sz_Tmp));
+    const std::string sz_Word = pwp_toUpper(pwp_popNextWord(sz_Tmp));  // gEt -> GET
 
     if (sz_Word.empty()) {
         return pwp_makeError("Empty command");
     }
 
+    /* Split the rest of the line into words */
+    std::vector<std::string> vec_Args;
+    while (!sz_Tmp.empty()) {
+        vec_Args.push_back(pwp_popNextWord(sz_Tmp));
+    }
+    const std::size_t siz_ArgCount = vec_Args.size();
+
     if (sz_Word == "PING") {
-        if (!sz_Tmp.empty()) {
+        if (siz_ArgCount != 0) {
             return pwp_makeError("PING takes no arguments");
         }
-        return pwp_makeCommand(CommandType::CMD_PING, "", "");
+        return pwp_makeCommand(CommandType::CMD_PING, vec_Args);
     }
-
     if (sz_Word == "GET" || sz_Word == "DEL") {
-        const std::string sz_Key = pwp_popNextWord(sz_Tmp);
-        if (sz_Key.empty() || !sz_Tmp.empty()) {  // If the key is empty or extra args
-            return pwp_makeError(sz_Word + " takes exactly one key");
+        if (siz_ArgCount != 1) {
+            return pwp_makeError(sz_Word + " takes exactly one argument.");
         }
 
         const CommandType enm_Type =
             (sz_Word == "GET") ? CommandType::CMD_GET : CommandType::CMD_DEL;
-        return pwp_makeCommand(enm_Type, sz_Key, "");
+        return pwp_makeCommand(enm_Type, vec_Args);
     }
-
     if (sz_Word == "SET") {
-        const std::string sz_Key = pwp_popNextWord(sz_Tmp);
-        if (sz_Key.empty() || sz_Tmp.empty()) {  // If the key or value is missing
-            return pwp_makeError("SET takes a key and a value");
+        if (siz_ArgCount == 0 || siz_ArgCount % 2 != 0) {
+            return pwp_makeError("SET takes key value pairs");
         }
-
-        /* Note: the value is the remainder of the line, which might include spaces */
-        return pwp_makeCommand(CommandType::CMD_SET, sz_Key, sz_Tmp);
+        return pwp_makeCommand(CommandType::CMD_SET, vec_Args);
     }
 
     return pwp_makeError("Unknown command: '" + sz_Word + "'");
