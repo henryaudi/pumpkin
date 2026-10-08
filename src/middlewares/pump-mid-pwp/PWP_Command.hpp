@@ -21,6 +21,7 @@
 #define PUMPKIN_PWP_COMMAND_HPP_
 
 #include <string>
+#include <vector>
 
 namespace pumpkin::middlewares {
 
@@ -33,9 +34,8 @@ enum class CommandType { CMD_PING, CMD_SET, CMD_GET, CMD_DEL };
  * @brief A parsed client request.
  */
 struct Command {
-    CommandType enm_Type = CommandType::CMD_PING; /* Default */
-    std::string sz_Key;
-    std::string sz_Value;
+    CommandType              enm_Type = CommandType::CMD_PING;  // Default command type PING
+    std::vector<std::string> vec_Args;  // Arguments associated with the command
 };
 
 }  // namespace pumpkin::middlewares

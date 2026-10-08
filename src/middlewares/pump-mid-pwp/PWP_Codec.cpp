@@ -72,14 +72,14 @@ std::string pwp_trim(const std::string& sz_Text) {
  * @return The extracted word. If no word is found, returns an empty string.
  */
 std::string pwp_popNextWord(std::string& sz_Text) {
-    const std::size_t siz_StartIdx = sz_Text.find_first_not_of(' ');
+    const std::size_t siz_StartIdx = sz_Text.find_first_not_of(PWP_WHITESPACE);
     if (siz_StartIdx == std::string::npos) {
         sz_Text.clear();
         return "";
     }
 
-    /* Find the space right after the last char of the word. */
-    const std::size_t siz_EndIdx = sz_Text.find(' ', siz_StartIdx);
+    /* Find the space/tab right after the last char of the word. */
+    const std::size_t siz_EndIdx = sz_Text.find_first_of(PWP_WHITESPACE, siz_StartIdx);
     if (siz_EndIdx == std::string::npos) {
         /*  No more spaces found, take the rest of the string as the word */
         std::string sz_Word = sz_Text.substr(siz_StartIdx);
@@ -90,13 +90,7 @@ std::string pwp_popNextWord(std::string& sz_Text) {
     /*  Extract the word between siz_StartIdx and siz_EndIdx */
     std::string sz_Word = sz_Text.substr(siz_StartIdx, siz_EndIdx - siz_StartIdx);
 
-    /* Skip all white space after the word, so the text now starts at the next word or empty. */
-    const std::size_t siz_NextIdx = sz_Text.find_first_not_of(PWP_WHITESPACE, siz_EndIdx);
-    if (siz_NextIdx == std::string::npos) {
-        sz_Text.clear();
-    } else {
-        sz_Text.erase(0, siz_NextIdx);
-    }
+    sz_Text.erase(0, siz_EndIdx);
 
     return sz_Word;
 }
@@ -115,19 +109,17 @@ ParseResult pwp_makeError(const std::string& sz_Message) {
 }
 
 /**
- * @brief Creates a ParseResult object with a command.
+ * @brief Creates a ParseResult object with a command
  *
  * @param enm_Type The type of the command.
- * @param sz_Key   The key associated with the command.
- * @param sz_Value The value associated with the command.
+ * @param vec_Args The arguments associated with the command.
  *
  * @return A ParseResult object with the command set.
  */
-ParseResult pwp_makeCommand(CommandType enm_Type, const std::string& sz_Key,
-                            const std::string& sz_Value) {
-    ParseResult str_Result;
-    str_Result.opt_Command = Command{enm_Type, sz_Key, sz_Value};
-    return str_Result;
+ParseResult pwp_makeCommand(CommandType enm_Type, const std::vector<std::string>& vec_Args) {
+    ParseResult str_Res;
+    str_Res.opt_Command = Command{enm_Type, vec_Args};
+    return str_Res;
 }
 }  // namespace
 
