@@ -132,7 +132,10 @@ bool TcpServer::start() {
     sockaddr_in str_Address{};
     str_Address.sin_family = AF_INET;  // IPv4
     str_Address.sin_port   = htons(m_u16_port);
-    inet_pton(AF_INET, NET_DEFAULT_IP, &str_Address.sin_addr);
+    if (inet_pton(AF_INET, NET_DEFAULT_IP, &str_Address.sin_addr) != 1) {
+        std::cerr << "pumpkin-server: invalid IP address: " << NET_DEFAULT_IP << "\n";
+        return false;
+    }
     if (bind(m_fd_listen, reinterpret_cast<sockaddr*>(&str_Address), sizeof(str_Address)) < 0) {
         net_printError("bind");
         return false;
