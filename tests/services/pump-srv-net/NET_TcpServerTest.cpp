@@ -193,6 +193,15 @@ TEST_F(TcpServerTest, TooLongLineClosesConnection) {
     close(fd_Client);
 }
 
+/* Bug 6: blank lines get no reply at all */
+TEST_F(TcpServerTest, BlankLinesGetNoReply) {
+    const int fd_Client = connectClient();
+    ASSERT_NE(fd_Client, -1);
+    net_sendAll(fd_Client, "\n   \n\t\r\nPING\n");
+    EXPECT_EQ(net_readLines(fd_Client, 1), "PONG\n");
+    close(fd_Client);
+}
+
 TEST_F(TcpServerTest, BigPipelinedRepliesAllArriveDespiteWriteLimit) {
     const int fd_Client = connectClient();
     ASSERT_NE(fd_Client, -1);

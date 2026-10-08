@@ -32,6 +32,7 @@ namespace pumpkin::middlewares {
 
 /* Longest line accepted in bytes. Longer inputs would result in connection closure */
 constexpr std::size_t PWP_MAX_LINE_LENGTH = 64 * 1024;
+constexpr char        PWP_WHITESPACE[]    = " \t\r";
 
 struct ParseResult {
     std::optional<Command> opt_Command;

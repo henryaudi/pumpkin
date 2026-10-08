@@ -73,5 +73,12 @@ TEST(ProcessLine, EmptyLineIsIgnored) {
     EXPECT_EQ(CDE_ProcessLine("", obj_Store), "");
 }
 
+/* Bug 6: a line with only whitespace is ignored like an empty one (no "ERR Empty command") */
+TEST(ProcessLine, WhitespaceOnlyLineIsIgnored) {
+    core::KvStore obj_Store;
+    EXPECT_EQ(CDE_ProcessLine("   ", obj_Store), "");
+    EXPECT_EQ(CDE_ProcessLine(" \t\r ", obj_Store), "");
+}
+
 }  // namespace
 }  // namespace pumpkin::middlewares

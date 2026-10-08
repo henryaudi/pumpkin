@@ -55,7 +55,7 @@ Reply CDE_ExecuteCommand(const Command& str_Command, core::KvStore& obj_Store) {
 }
 
 std::string CDE_ProcessLine(const std::string& sz_Line, core::KvStore& obj_Store) {
-    if (sz_Line.empty()) {
+    if (sz_Line.find_first_not_of(PWP_WHITESPACE) == std::string::npos) {
         return "";
     }
 
