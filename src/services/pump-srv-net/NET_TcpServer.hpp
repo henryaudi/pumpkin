@@ -56,8 +56,10 @@ public:
 
     /**
      * @brief Serves clients until stop() is called.
+     *
+     * @return true if it stopped because stop() was called; false on a fatal poll() error.
      */
-    void run();
+    bool run();
 
     /**
      * @brief Asks run() to return. Safe to call from another thread.

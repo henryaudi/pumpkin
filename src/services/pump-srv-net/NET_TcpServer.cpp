@@ -163,7 +163,7 @@ bool TcpServer::start() {
     return true;
 }
 
-void TcpServer::run() {
+bool TcpServer::run() {
     while (!m_atm_stopRequested) {
         /* Build the list of sockets to watch */
         std::vector<pollfd> vec_PollFds;
@@ -195,7 +195,7 @@ void TcpServer::run() {
                 continue;  // Interrupted by signal, retry poll()
             }
             net_printError("poll");
-            return;  // Exit the run loop on poll error
+            return false;  // Exit the run loop on poll error
         }
 
         /* Handle ready sockets */
@@ -237,6 +237,8 @@ void TcpServer::run() {
             closeConnection(fd_Client);
         }
     }
+
+    return true;
 }
 
 void TcpServer::stop() {
