@@ -45,10 +45,11 @@ Reply CDE_ExecuteCommand(const Command& str_Command, core::KvStore& obj_Store) {
             }
             return Reply{ReplyType::REPLY_VALUE, opt_Value.value(), 0};
         }
-        case CommandType::CMD_DEL:
+        case CommandType::CMD_DEL: {
             const bool bol_Removed = obj_Store.remove(str_Command.vec_Args[0]);
             /* Return the number of keys removed */
             return Reply{ReplyType::REPLY_INTEGER, "", bol_Removed ? 1 : 0};
+        }
     }
     return Reply{ReplyType::REPLY_ERROR, "internal error: unknown command", 0};
 }
