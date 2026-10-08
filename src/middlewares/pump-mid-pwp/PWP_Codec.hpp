@@ -53,8 +53,8 @@ std::optional<std::string> PWP_ExtractLine(std::string& sz_Buffer);
 /**
  * @brief Parses one line into a command.
  *
- * @details Command names are case-insensitive. For SET, the value is the rest of the line after
- *          the key, so it may contain spaces.
+ * @details Command names are case-insensitive. Words are separated by spaces or tabs; keys and
+ *          values are single words. SET takes one or more key value pairs.
  *
  * @param sz_Line One line, without its line ending.
  *
