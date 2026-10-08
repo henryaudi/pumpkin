@@ -22,6 +22,7 @@
 
 #include <gtest/gtest.h>
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -118,6 +119,22 @@ TEST(ParseLine, TabsSeparateWords) {
     const ParseResult str_Result = PWP_ParseLine("SET\tname\t\tpumpkin\t");
     ASSERT_TRUE(str_Result.opt_Command.has_value());
     const std::vector<std::string> vec_Expected = {"name", "pumpkin"};
+    EXPECT_EQ(str_Result.opt_Command.value().vec_Args, vec_Expected);
+}
+
+/* Bug 7: an extra "r" before the line ending is ignored */
+TEST(ParseLine, ExtraCarriageReturnIsIgnored) {
+    std::string sz_Buffer = "PING\r\r\n";
+    const std::optional<std::string> opt_Line = PWP_ExtractLine(sz_Buffer);
+    ASSERT_TRUE(opt_Line.has_value());
+    EXPECT_TRUE(PWP_ParseLine(opt_Line.value()).opt_Command.has_value());
+}
+
+/* Bug 10: "\r" separates words, so it can never end up inside a key or value */
+TEST(ParseLine, CarriageReturnSeparatesWords) {
+    const ParseResult str_Result = PWP_ParseLine("SET a\rb");
+    ASSERT_TRUE(str_Result.opt_Command.has_value());
+    const std::vector<std::string> vec_Expected = {"a", "b"};
     EXPECT_EQ(str_Result.opt_Command.value().vec_Args, vec_Expected);
 }
 
