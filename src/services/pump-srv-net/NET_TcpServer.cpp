@@ -171,7 +171,8 @@ void TcpServer::run() {
 
             /* If unsent replies are below the limit, ask poll() to notify us when the client sends
                more commands. Otherwise stop reading until it catches up (backpressure) */
-            if (str_Connection.sz_WriteBuffer.size() < NET_MAX_WRITE_BUFFER) {
+            if (!str_Connection.bol_PeerClosed &&
+                str_Connection.sz_WriteBuffer.size() < NET_MAX_WRITE_BUFFER) {
                 int_Events |= POLLIN;
             }
             /* If there's still content in the write buffer, ask poll() to tell us when the socket
@@ -213,6 +214,10 @@ void TcpServer::run() {
             }
             if (bol_KeepOpen && !str_Connection.sz_WriteBuffer.empty()) {
                 bol_KeepOpen = writeTo(str_PollFd.fd, str_Connection);
+            }
+            if (bol_KeepOpen && str_Connection.bol_PeerClosed &&
+                str_Connection.sz_WriteBuffer.empty()) {
+                bol_KeepOpen = false;
             }
             if (!bol_KeepOpen) {
                 vec_SocketsToClose.push_back(str_PollFd.fd);
@@ -262,8 +267,9 @@ void TcpServer::acceptConnections() {
 bool TcpServer::readFrom(int fd_Client, Connection& str_Connection) {
     std::array<char, NET_READ_CHUNK_SIZE> arr_Chunks;
     const ssize_t ssiz_Received = recv(fd_Client, &arr_Chunks[0], arr_Chunks.size(), 0);
-    if (ssiz_Received == 0) {
-        return false;  // the client has closed the connection
+    if (ssiz_Received == 0) {  // EOF
+        str_Connection.bol_PeerClosed = true;
+        return true;
     }
     if (ssiz_Received < 0) {
         return net_isTryAgain();

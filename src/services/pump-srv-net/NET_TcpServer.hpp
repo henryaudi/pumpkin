@@ -75,6 +75,7 @@ private:
     struct Connection {
         std::string sz_ReadBuffer;
         std::string sz_WriteBuffer;
+        bool        bol_PeerClosed = false;
     };
 
     void acceptConnections();
