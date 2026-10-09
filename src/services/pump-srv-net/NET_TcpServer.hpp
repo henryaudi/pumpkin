@@ -57,7 +57,8 @@ public:
     /**
      * @brief Serves clients until stop() is called.
      *
-     * @return 0 if it stopped because stop() was called; a negative errno if poll() failed.
+     * @return 0 if it stopped because stop() was called; -EBADF if start() was never called; a
+     *         negative errno if poll() failed.
      */
     int run();
 

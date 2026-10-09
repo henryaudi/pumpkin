@@ -45,14 +45,10 @@ namespace {
 // PRIVATE SCOPE
 // ================================================================================================
 
-/* How often run() wakes up to check whether stop() was called. */
-constexpr int NET_POLL_TIMEOUT_MS = 100;
-/* Bytes read per recv call. */
-constexpr std::size_t NET_READ_CHUNK_SIZE = 4096;
-/* Stop reading from a client once this many bytes are queued for writing (backpressure). */
+constexpr int         NET_POLL_TIMEOUT_MS  = 100;
+constexpr std::size_t NET_READ_CHUNK_SIZE  = 4096;
 constexpr std::size_t NET_MAX_WRITE_BUFFER = 1024 * 1024;
-/* Default IP address to bind the listening socket to. */
-constexpr char NET_DEFAULT_IP[] = "127.0.0.1";
+constexpr char        NET_DEFAULT_IP[]     = "127.0.0.1";
 
 /**
  * @brief Prints "pumpkin-server: <sz_ErrOp>: <strerror(errno)>" to std::cerr.
@@ -170,8 +166,9 @@ int TcpServer::start() {
 }
 
 int TcpServer::run() {
+    /* Not started - poll() ignores a negative fd so this would loop forever doing nothing */
     if (m_fd_listen < 0) {
-        return -EBADF;  // Bad file descriptor
+        return -EBADF;
     }
 
     while (!m_atm_stopRequested) {
