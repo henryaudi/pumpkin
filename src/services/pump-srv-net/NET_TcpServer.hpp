@@ -50,16 +50,17 @@ public:
     /**
      * @brief Opens the listening socket.
      *
-     * @return true on success; false if the socket could not be opened.
+     * @return 0 on success; a negative errno if a socket call failed (e.g. -EADDRINUSE).
      */
-    bool start();
+    int start();
 
     /**
      * @brief Serves clients until stop() is called.
      *
-     * @return true if it stopped because stop() was called; false on a fatal poll() error.
+     * @return 0 if it stopped because stop() was called; -EBADF if start() was never called; a
+     *         negative errno if poll() failed.
      */
-    bool run();
+    int run();
 
     /**
      * @brief Asks run() to return. Safe to call from another thread.
@@ -82,8 +83,8 @@ private:
     };
 
     void acceptConnections();
-    bool readFrom(int fd_Client, Connection& str_Connection);
-    bool writeTo(int fd_Client, Connection& str_Connection);
+    int  readFrom(int fd_Client, Connection& str_Connection);
+    int  writeTo(int fd_Client, Connection& str_Connection);
     void processPendingLines(Connection& str_Connection);
     void closeConnection(int fd_Client);
 

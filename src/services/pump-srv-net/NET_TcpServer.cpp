@@ -45,14 +45,10 @@ namespace {
 // PRIVATE SCOPE
 // ================================================================================================
 
-/* How often run() wakes up to check whether stop() was called. */
-constexpr int NET_POLL_TIMEOUT_MS = 100;
-/* Bytes read per recv call. */
-constexpr std::size_t NET_READ_CHUNK_SIZE = 4096;
-/* Stop reading from a client once this many bytes are queued for writing (backpressure). */
+constexpr int         NET_POLL_TIMEOUT_MS  = 100;
+constexpr std::size_t NET_READ_CHUNK_SIZE  = 4096;
 constexpr std::size_t NET_MAX_WRITE_BUFFER = 1024 * 1024;
-/* Default IP address to bind the listening socket to. */
-constexpr char NET_DEFAULT_IP[] = "127.0.0.1";
+constexpr char        NET_DEFAULT_IP[]     = "127.0.0.1";
 
 /**
  * @brief Prints "pumpkin-server: <sz_ErrOp>: <strerror(errno)>" to std::cerr.
@@ -68,17 +64,17 @@ void net_printError(const std::string& sz_ErrOp) {
  *
  * @param fd_Socket The socket to change.
  *
- * @return true on success.
+ * @return 0 on success; a negative errno if fcntl() failed.
  */
-bool net_setSocketNonBlocking(int fd_Socket) {
+int net_setSocketNonBlocking(int fd_Socket) {
     /* Get the current socket status flags*/
     const int int_Flags = fcntl(fd_Socket, F_GETFL, 0);
     if (int_Flags < 0) {
-        return false;
+        return -errno;
     }
 
     /* Set the socket to non-blocking and return */
-    return fcntl(fd_Socket, F_SETFL, int_Flags | O_NONBLOCK) != -1;
+    return fcntl(fd_Socket, F_SETFL, int_Flags | O_NONBLOCK) < 0 ? -errno : 0;
 }
 
 /**
@@ -109,7 +105,7 @@ TcpServer::~TcpServer() {
     }
 }
 
-bool TcpServer::start() {
+int TcpServer::start() {
     /* Writing to a client that already disconnected raises SIGPIPE, which kills the whole process
        by default. Ignore it (SIG_IGN), so send() just returns with an error instead */
     std::signal(SIGPIPE, SIG_IGN);
@@ -117,15 +113,17 @@ bool TcpServer::start() {
     /* Create the listening socket (IPv4, TCP) */
     m_fd_listen = socket(AF_INET, SOCK_STREAM, 0);
     if (m_fd_listen < 0) {
-        net_printError("socket");
-        return false;
+        const int int_Err = -errno;
+        net_printError("socket");  // This call might set errno so we buffer it first
+        return int_Err;
     }
 
     /* Allow restarting the server right away on the same port */
     const int int_Enable = 1;
     if (setsockopt(m_fd_listen, SOL_SOCKET, SO_REUSEADDR, &int_Enable, sizeof(int_Enable)) < 0) {
+        const int int_Err = -errno;
         net_printError("setsockopt");
-        return false;
+        return int_Err;
     }
 
     /* Bind the listening socket to the specified IP address and port */
@@ -134,36 +132,45 @@ bool TcpServer::start() {
     str_Address.sin_port   = htons(m_u16_port);
     if (inet_pton(AF_INET, NET_DEFAULT_IP, &str_Address.sin_addr) != 1) {
         std::cerr << "pumpkin-server: invalid IP address: " << NET_DEFAULT_IP << "\n";
-        return false;
+        return -EINVAL;  // Invalid argument
     }
     if (bind(m_fd_listen, reinterpret_cast<sockaddr*>(&str_Address), sizeof(str_Address)) < 0) {
+        const int int_Err = -errno;
         net_printError("bind");
-        return false;
+        return int_Err;
     }
 
     /* Start listening for incoming connections */
     if (listen(m_fd_listen, SOMAXCONN) < 0) {
+        const int int_Err = -errno;
         net_printError("listen");
-        return false;
+        return int_Err;
     }
 
     /* Set the listening socket to non-blocking mode */
-    if (!net_setSocketNonBlocking(m_fd_listen)) {
+    const int int_Res = net_setSocketNonBlocking(m_fd_listen);
+    if (int_Res < 0) {
         net_printError("fcntl");
-        return false;
+        return int_Res;
     }
 
     /* Get port number bound to the socket */
     socklen_t u32_Length = sizeof(str_Address);
     if (getsockname(m_fd_listen, reinterpret_cast<sockaddr*>(&str_Address), &u32_Length) < 0) {
+        const int int_Err = -errno;
         net_printError("getsockname");
-        return false;
+        return int_Err;
     }
     m_u16_port = ntohs(str_Address.sin_port);
-    return true;
+    return 0;
 }
 
-bool TcpServer::run() {
+int TcpServer::run() {
+    /* Not started - poll() ignores a negative fd so this would loop forever doing nothing */
+    if (m_fd_listen < 0) {
+        return -EBADF;
+    }
+
     while (!m_atm_stopRequested) {
         /* Build the list of sockets to watch */
         std::vector<pollfd> vec_PollFds;
@@ -194,8 +201,9 @@ bool TcpServer::run() {
             if (errno == EINTR) {
                 continue;  // Interrupted by signal, retry poll()
             }
+            const int int_Err = -errno;
             net_printError("poll");
-            return false;  // Exit the run loop on poll error
+            return int_Err;  // Exit the run loop on poll error
         }
 
         /* Handle ready sockets */
@@ -215,11 +223,11 @@ bool TcpServer::run() {
             /* Read from the client if it's readable or hung up waiting for recv (POLLHUP) */
             if (bol_KeepOpen && !str_Connection.bol_CloseAfterWrite &&
                 (str_PollFd.revents & (POLLIN | POLLHUP)) != 0) {
-                bol_KeepOpen = readFrom(str_PollFd.fd, str_Connection);
+                bol_KeepOpen = (readFrom(str_PollFd.fd, str_Connection) == 0);
             }
             /* Write to the client if there's data in the write buffer */
             if (bol_KeepOpen && !str_Connection.sz_WriteBuffer.empty()) {
-                bol_KeepOpen = writeTo(str_PollFd.fd, str_Connection);
+                bol_KeepOpen = (writeTo(str_PollFd.fd, str_Connection) == 0);
             }
             /* Close the connection if the peer has closed it or we are supposed to close after
              * writing, and the write buffer is empty */
@@ -238,7 +246,7 @@ bool TcpServer::run() {
         }
     }
 
-    return true;
+    return 0;
 }
 
 void TcpServer::stop() {
@@ -264,7 +272,7 @@ void TcpServer::acceptConnections() {
             return;
         }
 
-        if (!net_setSocketNonBlocking(fd_Client)) {
+        if (net_setSocketNonBlocking(fd_Client) < 0) {
             net_printError("fcntl");
             close(fd_Client);
             return;
@@ -275,15 +283,15 @@ void TcpServer::acceptConnections() {
     }
 }
 
-bool TcpServer::readFrom(int fd_Client, Connection& str_Connection) {
+int TcpServer::readFrom(int fd_Client, Connection& str_Connection) {
     std::array<char, NET_READ_CHUNK_SIZE> arr_Chunks;
     const ssize_t ssiz_Received = recv(fd_Client, &arr_Chunks[0], arr_Chunks.size(), 0);
     if (ssiz_Received == 0) {  // EOF
         str_Connection.bol_PeerClosed = true;
-        return true;
+        return 0;
     }
     if (ssiz_Received < 0) {
-        return net_isTryAgain();
+        return net_isTryAgain() ? 0 : -errno;
     }
 
     /* Append the received data to the connection's read buffer */
@@ -309,14 +317,14 @@ bool TcpServer::readFrom(int fd_Client, Connection& str_Connection) {
         str_Connection.bol_CloseAfterWrite = true;
     }
 
-    return true;
+    return 0;
 }
 
-bool TcpServer::writeTo(int fd_Client, Connection& str_Connection) {
+int TcpServer::writeTo(int fd_Client, Connection& str_Connection) {
     const ssize_t ssiz_Sent = send(fd_Client, str_Connection.sz_WriteBuffer.data(),
                                    str_Connection.sz_WriteBuffer.size(), 0);
     if (ssiz_Sent < 0) {
-        return net_isTryAgain();
+        return net_isTryAgain() ? 0 : -errno;
     }
 
     /* send() may accept only part of the data: drop what was sent, keep the rest */
@@ -326,7 +334,7 @@ bool TcpServer::writeTo(int fd_Client, Connection& str_Connection) {
        and queue their replies */
     processPendingLines(str_Connection);
 
-    return true;
+    return 0;
 }
 
 void TcpServer::processPendingLines(Connection& str_Connection) {
