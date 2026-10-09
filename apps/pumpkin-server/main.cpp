@@ -18,14 +18,13 @@
  */
 
 #include <atomic>
-#include <charconv>
+#include <cerrno>
 #include <csignal>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <iostream>
-#include <optional>
 #include <string>
-#include <system_error>
 
 #include "core/pump-core-eng/ENG_KvStore.hpp"
 #include "services/pump-srv-net/NET_TcpServer.hpp"
@@ -53,27 +52,34 @@ void srv_handleStopSignal([[maybe_unused]] int int_Signal) {
 /**
  * @brief Parses a TCP port number.
  *
- * @param sz_Text The text to parse, e.g. argv[1].
+ * @param sz_Text  The text to parse, e.g. argv[1].
+ * @param u16_Port Receives the port on success; unchanged on failure.
  *
- * @return The port, or std::nullopt unless the text is only digits and at most 65535.
+ * @return 0 on success; -EINVAL if the text is not only digits; -ERANGE if it is above 65535.
  */
-std::optional<std::uint16_t> srv_parsePort(const std::string& sz_Text) {
-    /* 65535 is the maximum valid port number */
-    if (sz_Text.empty() || sz_Text.size() > 5) {
-        return std::nullopt;
+int srv_parsePort(const std::string& sz_Text, std::uint16_t& u16_Port) {
+    if (sz_Text.empty()) {
+        return -EINVAL;  // Invalid argument
     }
 
+    /* Digits only */
     for (const char ch_Char : sz_Text) {
         if (ch_Char < '0' || ch_Char > '9') {
-            return std::nullopt;
+            return -EINVAL;
         }
     }
 
-    const int int_Port = std::stoi(sz_Text);
-    if (int_Port > 65535) {
-        return std::nullopt;
+    if (sz_Text.size() > 5) {  // Cannot accept more than 5 digits for a port number
+        return -ERANGE;
     }
-    return static_cast<std::uint16_t>(int_Port);
+
+    const int int_Port = std::stoi(sz_Text);
+    if (int_Port < 0 || int_Port > 65535) {
+        return -ERANGE;
+    }
+
+    u16_Port = static_cast<std::uint16_t>(int_Port);
+    return 0;
 }
 
 }  // namespace
@@ -81,19 +87,25 @@ std::optional<std::uint16_t> srv_parsePort(const std::string& sz_Text) {
 int main(int argc, char* argv[]) {
     std::uint16_t u16_Port = SRV_DEFAULT_PORT;
     if (argc > 1) {
-        const std::optional<std::uint16_t> opt_Port = srv_parsePort(argv[1]);
-        if (!opt_Port.has_value()) {
-            std::cerr << "usage: pumpkin-server [port]   (port 0-65535; 0 = any free port)\n";
-            return 1;
+        const int int_Result = srv_parsePort(argv[1], u16_Port);
+        if (int_Result < 0) {
+            std::cerr << "pumpkin-server: invalid port '" << argv[1]
+                      << "': " << std::strerror(-int_Result) << "\n"
+                      << "usage: pumpkin-server [port]   (port 0-65535; 0 = any free port)\n";
+            return EXIT_FAILURE;
         }
-        u16_Port = opt_Port.value();
     }
 
     pumpkin::core::KvStore       obj_Store;
     pumpkin::services::TcpServer obj_Server(u16_Port, obj_Store);
 
-    if (!obj_Server.start()) {
-        return 1;
+    const int int_StartResult = obj_Server.start();
+    if (int_StartResult < 0) {
+        if (int_StartResult == -EADDRINUSE) {
+            std::cerr << "pumpkin-server: port " << u16_Port
+                      << " is in use; pick another port, or 0 for any free port\n";
+        }
+        return EXIT_FAILURE;
     }
 
     srv_atm_server.store(&obj_Server);
@@ -101,10 +113,10 @@ int main(int argc, char* argv[]) {
     std::signal(SIGTERM, srv_handleStopSignal);
 
     std::cout << "pumpkin-server listening on 127.0.0.1:" << obj_Server.port() << std::endl;
-    const bool bol_StoppedCleanly = obj_Server.run();
+    const int int_RunResult = obj_Server.run();
 
     srv_atm_server.store(nullptr);  // Clear the global server pointer after stopping
     std::cout << "pumpkin-server: shutting down" << std::endl;
 
-    return bol_StoppedCleanly ? 0 : 1;
+    return (int_RunResult == 0) ? EXIT_SUCCESS : EXIT_FAILURE;
 }
