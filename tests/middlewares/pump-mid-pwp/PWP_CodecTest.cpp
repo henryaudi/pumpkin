@@ -124,8 +124,8 @@ TEST(ParseLine, TabsSeparateWords) {
 
 /* Bug 7: an extra "r" before the line ending is ignored */
 TEST(ParseLine, ExtraCarriageReturnIsIgnored) {
-    std::string sz_Buffer = "PING\r\r\n";
-    const std::optional<std::string> opt_Line = PWP_ExtractLine(sz_Buffer);
+    std::string                      sz_Buffer = "PING\r\r\n";
+    const std::optional<std::string> opt_Line  = PWP_ExtractLine(sz_Buffer);
     ASSERT_TRUE(opt_Line.has_value());
     EXPECT_TRUE(PWP_ParseLine(opt_Line.value()).opt_Command.has_value());
 }
