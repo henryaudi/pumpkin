@@ -32,6 +32,7 @@ namespace pumpkin::middlewares {
 
 /* Longest line accepted in bytes. Longer inputs would result in connection closure */
 constexpr std::size_t PWP_MAX_LINE_LENGTH = 64 * 1024;
+constexpr char        PWP_WHITESPACE[]    = " \t\r";
 
 struct ParseResult {
     std::optional<Command> opt_Command;
@@ -53,8 +54,8 @@ std::optional<std::string> PWP_ExtractLine(std::string& sz_Buffer);
 /**
  * @brief Parses one line into a command.
  *
- * @details Command names are case-insensitive. Words are separated by spaces or tabs; keys and
- *          values are single words. SET takes one or more key value pairs.
+ * @details Command names are case-insensitive. Words are separated by spaces or tabs or carriage
+ *          returns; keys and values are single words. SET takes one or more key value pairs.
  *
  * @param sz_Line One line, without its line ending.
  *

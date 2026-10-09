@@ -178,7 +178,7 @@ TEST_F(TcpServerTest, InvalidCommandKeepsConnectionOpen) {
     close(fd_Client);
 }
 
-TEST_F(TcpServerTest, TooLongLineClosesConnection) {
+TEST_F(TcpServerTest, TooLongLineGetsErrorThenCloses) {
     const int fd_Client = connectClient();
     ASSERT_NE(fd_Client, -1);
 
@@ -186,10 +186,20 @@ TEST_F(TcpServerTest, TooLongLineClosesConnection) {
     const std::string sz_Huge(middlewares::PWP_MAX_LINE_LENGTH + 1, 'A');
     net_sendAll(fd_Client, sz_Huge);
 
-    /* The server must close the connection: recv() returns 0 (closed) or -1 (reset) */
+    EXPECT_EQ(net_readLines(fd_Client, 1), "ERR line too long\n");
+
     std::array<char, 16> arr_Buffer;
     const ssize_t        ssiz_Read = recv(fd_Client, arr_Buffer.data(), arr_Buffer.size(), 0);
     EXPECT_LE(ssiz_Read, 0);
+    close(fd_Client);
+}
+
+/* Bug 6: blank lines get no reply at all */
+TEST_F(TcpServerTest, BlankLinesGetNoReply) {
+    const int fd_Client = connectClient();
+    ASSERT_NE(fd_Client, -1);
+    net_sendAll(fd_Client, "\n   \n\t\r\nPING\n");
+    EXPECT_EQ(net_readLines(fd_Client, 1), "PONG\n");
     close(fd_Client);
 }
 

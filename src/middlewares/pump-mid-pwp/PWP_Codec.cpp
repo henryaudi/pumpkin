@@ -31,8 +31,6 @@ namespace {
 // PRIVATE SCOPE
 // ================================================================================================
 
-constexpr char PWP_WHITESPACE[] = " \t";
-
 /**
  * @brief Converts a string to uppercase.
  *

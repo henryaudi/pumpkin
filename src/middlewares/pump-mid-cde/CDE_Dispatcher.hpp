@@ -42,12 +42,12 @@ Reply CDE_ExecuteCommand(const Command& str_Command, core::KvStore& obj_Store);
  * @brief Handles one line of the text protocol from start to finish.
  *
  * @details Parses the line, runs the command, and encodes the reply. Invalid lines produce an
- *          "ERR ..." reply. Empty lines are ignored.
+ *          "ERR ..." reply. Empty or whitespace-only lines are ignored.
  *
  * @param sz_Line   One line from the client, without its line ending.
  * @param obj_Store The store to run the command against.
  *
- * @return The reply text including "\n", or an empty string for an empty line.
+ * @return The reply text including "\n", or an empty string for an blank line.
  */
 std::string CDE_ProcessLine(const std::string& sz_Line, core::KvStore& obj_Store);
 

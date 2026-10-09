@@ -132,7 +132,10 @@ bool TcpServer::start() {
     sockaddr_in str_Address{};
     str_Address.sin_family = AF_INET;  // IPv4
     str_Address.sin_port   = htons(m_u16_port);
-    inet_pton(AF_INET, NET_DEFAULT_IP, &str_Address.sin_addr);
+    if (inet_pton(AF_INET, NET_DEFAULT_IP, &str_Address.sin_addr) != 1) {
+        std::cerr << "pumpkin-server: invalid IP address: " << NET_DEFAULT_IP << "\n";
+        return false;
+    }
     if (bind(m_fd_listen, reinterpret_cast<sockaddr*>(&str_Address), sizeof(str_Address)) < 0) {
         net_printError("bind");
         return false;
@@ -160,7 +163,7 @@ bool TcpServer::start() {
     return true;
 }
 
-void TcpServer::run() {
+bool TcpServer::run() {
     while (!m_atm_stopRequested) {
         /* Build the list of sockets to watch */
         std::vector<pollfd> vec_PollFds;
@@ -171,7 +174,7 @@ void TcpServer::run() {
 
             /* If unsent replies are below the limit, ask poll() to notify us when the client sends
                more commands. Otherwise stop reading until it catches up (backpressure) */
-            if (!str_Connection.bol_PeerClosed &&
+            if (!str_Connection.bol_PeerClosed && !str_Connection.bol_CloseAfterWrite &&
                 str_Connection.sz_WriteBuffer.size() < NET_MAX_WRITE_BUFFER) {
                 int_Events |= POLLIN;
             }
@@ -192,7 +195,7 @@ void TcpServer::run() {
                 continue;  // Interrupted by signal, retry poll()
             }
             net_printError("poll");
-            return;  // Exit the run loop on poll error
+            return false;  // Exit the run loop on poll error
         }
 
         /* Handle ready sockets */
@@ -209,13 +212,19 @@ void TcpServer::run() {
             Connection& str_Connection = m_map_connections.at(str_PollFd.fd);
             bool        bol_KeepOpen   = (str_PollFd.revents & (POLLERR | POLLNVAL)) == 0;
 
-            if (bol_KeepOpen && (str_PollFd.revents & (POLLIN | POLLHUP)) != 0) {
+            /* Read from the client if it's readable or hung up waiting for recv (POLLHUP) */
+            if (bol_KeepOpen && !str_Connection.bol_CloseAfterWrite &&
+                (str_PollFd.revents & (POLLIN | POLLHUP)) != 0) {
                 bol_KeepOpen = readFrom(str_PollFd.fd, str_Connection);
             }
+            /* Write to the client if there's data in the write buffer */
             if (bol_KeepOpen && !str_Connection.sz_WriteBuffer.empty()) {
                 bol_KeepOpen = writeTo(str_PollFd.fd, str_Connection);
             }
-            if (bol_KeepOpen && str_Connection.bol_PeerClosed &&
+            /* Close the connection if the peer has closed it or we are supposed to close after
+             * writing, and the write buffer is empty */
+            if (bol_KeepOpen &&
+                (str_Connection.bol_PeerClosed || str_Connection.bol_CloseAfterWrite) &&
                 str_Connection.sz_WriteBuffer.empty()) {
                 bol_KeepOpen = false;
             }
@@ -228,6 +237,8 @@ void TcpServer::run() {
             closeConnection(fd_Client);
         }
     }
+
+    return true;
 }
 
 void TcpServer::stop() {
@@ -289,7 +300,16 @@ bool TcpServer::readFrom(int fd_Client, Connection& str_Connection) {
             ? str_Connection.sz_ReadBuffer.size()
             : str_Connection.sz_ReadBuffer.size() - (siz_LastNewLineIdx + 1);
 
-    return siz_Unfinished <= middlewares::PWP_MAX_LINE_LENGTH;
+    if (siz_Unfinished > middlewares::PWP_MAX_LINE_LENGTH) {
+        /* Tell the client why, then close once the error has been sent. The rest of its input is
+         * dropped - the connection is closing anyway */
+        str_Connection.sz_ReadBuffer.clear();
+        str_Connection.sz_WriteBuffer += middlewares::PWP_EncodeReply(
+            middlewares::Reply{middlewares::ReplyType::REPLY_ERROR, "line too long", 0});
+        str_Connection.bol_CloseAfterWrite = true;
+    }
+
+    return true;
 }
 
 bool TcpServer::writeTo(int fd_Client, Connection& str_Connection) {

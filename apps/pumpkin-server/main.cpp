@@ -17,29 +17,76 @@
  ******************************************************************************
  */
 
+#include <atomic>
+#include <charconv>
+#include <csignal>
 #include <cstdint>
-#include <cstdlib>
+#include <cstring>
 #include <iostream>
+#include <optional>
+#include <string>
+#include <system_error>
 
 #include "core/pump-core-eng/ENG_KvStore.hpp"
 #include "services/pump-srv-net/NET_TcpServer.hpp"
 
 namespace {
 
-/* Port used when none was given on the command line */
-constexpr std::uint16_t SRV_DEFAULT_PORT = 7379;
+constexpr std::uint16_t SRV_DEFAULT_PORT = 7379;  // Default port for the pumpkin-server
+std::atomic<pumpkin::services::TcpServer*> srv_atm_server{nullptr};
+
+/**
+ * @brief Called by the OS on Ctrl+C (SIGINT) or `kill` (SIGTERM): asks the server to stop.
+ *
+ * @details A signal handler may only do async-signal-safe work. stop() just sets an atomic flag;
+ *          run() notices it within NET_POLL_TIMEOUT_MS and returns normally.
+ *
+ * @param int_Signal The signal number (unused).
+ */
+void srv_handleStopSignal([[maybe_unused]] int int_Signal) {
+    pumpkin::services::TcpServer* ptr_Server = srv_atm_server.load();
+    if (ptr_Server != nullptr) {
+        ptr_Server->stop();
+    }
+}
+
+/**
+ * @brief Parses a TCP port number.
+ *
+ * @param sz_Text The text to parse, e.g. argv[1].
+ *
+ * @return The port, or std::nullopt unless the text is only digits and at most 65535.
+ */
+std::optional<std::uint16_t> srv_parsePort(const std::string& sz_Text) {
+    /* 65535 is the maximum valid port number */
+    if (sz_Text.empty() || sz_Text.size() > 5) {
+        return std::nullopt;
+    }
+
+    for (const char ch_Char : sz_Text) {
+        if (ch_Char < '0' || ch_Char > '9') {
+            return std::nullopt;
+        }
+    }
+
+    const int int_Port = std::stoi(sz_Text);
+    if (int_Port > 65535) {
+        return std::nullopt;
+    }
+    return static_cast<std::uint16_t>(int_Port);
+}
 
 }  // namespace
 
 int main(int argc, char* argv[]) {
     std::uint16_t u16_Port = SRV_DEFAULT_PORT;
     if (argc > 1) {
-        const int int_Requested = std::atoi(argv[1]);
-        if (int_Requested <= 0 || int_Requested > 65535) {
-            std::cerr << "usage: pumpkin-server [port]\n";
+        const std::optional<std::uint16_t> opt_Port = srv_parsePort(argv[1]);
+        if (!opt_Port.has_value()) {
+            std::cerr << "usage: pumpkin-server [port]   (port 0-65535; 0 = any free port)\n";
             return 1;
         }
-        u16_Port = static_cast<std::uint16_t>(int_Requested);
+        u16_Port = opt_Port.value();
     }
 
     pumpkin::core::KvStore       obj_Store;
@@ -49,7 +96,15 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    srv_atm_server.store(&obj_Server);
+    std::signal(SIGINT, srv_handleStopSignal);
+    std::signal(SIGTERM, srv_handleStopSignal);
+
     std::cout << "pumpkin-server listening on 127.0.0.1:" << obj_Server.port() << std::endl;
-    obj_Server.run();
-    return 0;
+    const bool bol_StoppedCleanly = obj_Server.run();
+
+    srv_atm_server.store(nullptr);  // Clear the global server pointer after stopping
+    std::cout << "pumpkin-server: shutting down" << std::endl;
+
+    return bol_StoppedCleanly ? 0 : 1;
 }
