@@ -8,5 +8,6 @@ target_link_libraries(pump-srv-net
     PUBLIC
         pump::core-eng
     PRIVATE
+        pump::cmn-stat
         pump::mid-cde
         pumpkin::warnings)
