@@ -14,8 +14,9 @@ TEST(StatusToString, DescribesKnownCodes) {
     EXPECT_EQ(std::string(STAT_ToString(P_EADDRINUSE)), "address already in use");
 }
 
-TEST(StatusToString,
-     UnknownCodeIsReported){EXPECT_EQ(std::string(STAT_ToString(12345)), "unknown status")}
+TEST(StatusToString, UnknownCodeIsReported) {
+    EXPECT_EQ(std::string(STAT_ToString(12345)), "unknown status");
+}
 
 TEST(StatusMapErrno, KnownErrnoGetsItsOwnCode) {
     EXPECT_EQ(STAT_MapErrno(EADDRINUSE), P_EADDRINUSE);

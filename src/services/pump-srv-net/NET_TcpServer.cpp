@@ -35,6 +35,7 @@
 #include <optional>
 #include <vector>
 
+#include "common/pump-cmn-stat/STAT_Status.hpp"
 #include "middlewares/pump-mid-cde/CDE_Dispatcher.hpp"
 #include "middlewares/pump-mid-pwp/PWP_Codec.hpp"
 
@@ -64,17 +65,17 @@ void net_printError(const std::string& sz_ErrOp) {
  *
  * @param fd_Socket The socket to change.
  *
- * @return 0 on success; a negative errno if fcntl() failed.
+ * @return P_OK on success; -P_EIO if fcntl() failed.
  */
 int net_setSocketNonBlocking(int fd_Socket) {
     /* Get the current socket status flags*/
     const int int_Flags = fcntl(fd_Socket, F_GETFL, 0);
     if (int_Flags < 0) {
-        return -errno;
+        return -P_EIO;
     }
 
     /* Set the socket to non-blocking and return */
-    return fcntl(fd_Socket, F_SETFL, int_Flags | O_NONBLOCK) < 0 ? -errno : 0;
+    return fcntl(fd_Socket, F_SETFL, int_Flags | O_NONBLOCK) < 0 ? -P_EIO : P_OK;
 }
 
 /**
@@ -113,17 +114,15 @@ int TcpServer::start() {
     /* Create the listening socket (IPv4, TCP) */
     m_fd_listen = socket(AF_INET, SOCK_STREAM, 0);
     if (m_fd_listen < 0) {
-        const int int_Err = -errno;
         net_printError("socket");  // This call might set errno so we buffer it first
-        return int_Err;
+        return -P_EIO;
     }
 
     /* Allow restarting the server right away on the same port */
     const int int_Enable = 1;
     if (setsockopt(m_fd_listen, SOL_SOCKET, SO_REUSEADDR, &int_Enable, sizeof(int_Enable)) < 0) {
-        const int int_Err = -errno;
         net_printError("setsockopt");
-        return int_Err;
+        return -P_EIO;
     }
 
     /* Bind the listening socket to the specified IP address and port */
@@ -132,19 +131,18 @@ int TcpServer::start() {
     str_Address.sin_port   = htons(m_u16_port);
     if (inet_pton(AF_INET, NET_DEFAULT_IP, &str_Address.sin_addr) != 1) {
         std::cerr << "pumpkin-server: invalid IP address: " << NET_DEFAULT_IP << "\n";
-        return -EINVAL;  // Invalid argument
+        return -P_EINVARG;  // Invalid argument
     }
     if (bind(m_fd_listen, reinterpret_cast<sockaddr*>(&str_Address), sizeof(str_Address)) < 0) {
-        const int int_Err = -errno;
+        const int int_Err = -STAT_MapErrno(errno);
         net_printError("bind");
         return int_Err;
     }
 
     /* Start listening for incoming connections */
     if (listen(m_fd_listen, SOMAXCONN) < 0) {
-        const int int_Err = -errno;
         net_printError("listen");
-        return int_Err;
+        return -P_EIO;
     }
 
     /* Set the listening socket to non-blocking mode */
@@ -157,18 +155,17 @@ int TcpServer::start() {
     /* Get port number bound to the socket */
     socklen_t u32_Length = sizeof(str_Address);
     if (getsockname(m_fd_listen, reinterpret_cast<sockaddr*>(&str_Address), &u32_Length) < 0) {
-        const int int_Err = -errno;
         net_printError("getsockname");
-        return int_Err;
+        return -P_EIO;
     }
     m_u16_port = ntohs(str_Address.sin_port);
-    return 0;
+    return P_OK;
 }
 
 int TcpServer::run() {
-    /* Not started - poll() ignores a negative fd so this would loop forever doing nothing */
+    /* Not started bro... */
     if (m_fd_listen < 0) {
-        return -EBADF;
+        return -P_ENOTINIT;
     }
 
     while (!m_atm_stopRequested) {
@@ -201,9 +198,8 @@ int TcpServer::run() {
             if (errno == EINTR) {
                 continue;  // Interrupted by signal, retry poll()
             }
-            const int int_Err = -errno;
             net_printError("poll");
-            return int_Err;  // Exit the run loop on poll error
+            return -P_EIO;  // Exit the run loop on poll error
         }
 
         /* Handle ready sockets */
@@ -223,11 +219,11 @@ int TcpServer::run() {
             /* Read from the client if it's readable or hung up waiting for recv (POLLHUP) */
             if (bol_KeepOpen && !str_Connection.bol_CloseAfterWrite &&
                 (str_PollFd.revents & (POLLIN | POLLHUP)) != 0) {
-                bol_KeepOpen = (readFrom(str_PollFd.fd, str_Connection) == 0);
+                bol_KeepOpen = (readFrom(str_PollFd.fd, str_Connection) == P_OK);
             }
             /* Write to the client if there's data in the write buffer */
             if (bol_KeepOpen && !str_Connection.sz_WriteBuffer.empty()) {
-                bol_KeepOpen = (writeTo(str_PollFd.fd, str_Connection) == 0);
+                bol_KeepOpen = (writeTo(str_PollFd.fd, str_Connection) == P_OK);
             }
             /* Close the connection if the peer has closed it or we are supposed to close after
              * writing, and the write buffer is empty */
@@ -246,7 +242,7 @@ int TcpServer::run() {
         }
     }
 
-    return 0;
+    return P_OK;
 }
 
 void TcpServer::stop() {
@@ -288,10 +284,10 @@ int TcpServer::readFrom(int fd_Client, Connection& str_Connection) {
     const ssize_t ssiz_Received = recv(fd_Client, &arr_Chunks[0], arr_Chunks.size(), 0);
     if (ssiz_Received == 0) {  // EOF
         str_Connection.bol_PeerClosed = true;
-        return 0;
+        return P_OK;
     }
     if (ssiz_Received < 0) {
-        return net_isTryAgain() ? 0 : -errno;
+        return net_isTryAgain() ? P_OK : -STAT_MapErrno(errno);
     }
 
     /* Append the received data to the connection's read buffer */
@@ -317,14 +313,14 @@ int TcpServer::readFrom(int fd_Client, Connection& str_Connection) {
         str_Connection.bol_CloseAfterWrite = true;
     }
 
-    return 0;
+    return P_OK;
 }
 
 int TcpServer::writeTo(int fd_Client, Connection& str_Connection) {
     const ssize_t ssiz_Sent = send(fd_Client, str_Connection.sz_WriteBuffer.data(),
                                    str_Connection.sz_WriteBuffer.size(), 0);
     if (ssiz_Sent < 0) {
-        return net_isTryAgain() ? 0 : -errno;
+        return net_isTryAgain() ? P_OK : -STAT_MapErrno(errno);
     }
 
     /* send() may accept only part of the data: drop what was sent, keep the rest */
@@ -334,7 +330,7 @@ int TcpServer::writeTo(int fd_Client, Connection& str_Connection) {
        and queue their replies */
     processPendingLines(str_Connection);
 
-    return 0;
+    return P_OK;
 }
 
 void TcpServer::processPendingLines(Connection& str_Connection) {

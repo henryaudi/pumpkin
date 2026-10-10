@@ -37,7 +37,7 @@ inline constexpr int P_ECONNRESET = 9;
 inline constexpr int P_EPIPE      = 10;
 
 /**
- * @brief Gets readable text for a status code.
+ * @brief Gets readable text for a Pumpkin status code.
  *
  * @param int_Status P_OK or one of the P_E* error codes.
  *

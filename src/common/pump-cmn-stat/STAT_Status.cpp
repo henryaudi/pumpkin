@@ -21,8 +21,6 @@
 
 #include <cerrno>
 
-namespace pumpkin::common {
-
 // ================================================================================================
 // GLOBAL SCOPE
 // ================================================================================================
@@ -78,5 +76,3 @@ int STAT_MapErrno(int int_Errno) {
             return P_EIO;  // every other system error
     }
 }
-
-}  // namespace pumpkin::common

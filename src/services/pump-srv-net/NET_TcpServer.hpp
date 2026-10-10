@@ -50,15 +50,16 @@ public:
     /**
      * @brief Opens the listening socket.
      *
-     * @return 0 on success; a negative errno if a socket call failed (e.g. -EADDRINUSE).
+     * @return P_OK on success; -P_EADDRINUSE / -P_EACCES if bind() failed; -P_EINVARG for a bad
+     *         IP address; -P_EIO for any other socket error.
      */
     int start();
 
     /**
      * @brief Serves clients until stop() is called.
      *
-     * @return 0 if it stopped because stop() was called; -EBADF if start() was never called; a
-     *         negative errno if poll() failed.
+     * @return P_OK if it stopped because stop() was called; -P_ENOTINIT if start() was never
+     *         called; -P_EIO if poll() failed.
      */
     int run();
 

@@ -41,6 +41,7 @@ gtest_discover_tests(pump-mid-cde-tests)
 add_executable(pump-srv-net-tests
     services/pump-srv-net/NET_TcpServerTest.cpp)
 target_link_libraries(pump-srv-net-tests PRIVATE
+    pump::cmn-stat
     pump::srv-net
     pumpkin::warnings
     GTest::gtest_main
