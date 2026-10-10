@@ -31,11 +31,11 @@
 
 #include <algorithm>
 #include <array>
-#include <cerrno>
 #include <cstdint>
 #include <string>
 #include <thread>
 
+#include "common/pump-cmn-stat/STAT_Status.hpp"
 #include "middlewares/pump-mid-pwp/PWP_Codec.hpp"
 
 namespace pumpkin::services {
@@ -101,7 +101,7 @@ std::string net_readLines(int fd_Socket, int int_LineCount) {
 class TcpServerTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        ASSERT_EQ(m_obj_server.start(), 0);
+        ASSERT_EQ(m_obj_server.start(), P_OK);
         m_thr_server = std::thread([this] { m_obj_server.run(); });
     }
 
@@ -121,34 +121,34 @@ protected:
     std::thread   m_thr_server;
 };
 
-/* start() reports WHY it failed: a port that is already taken gives -EADDRINUSE */
+/* start() reports WHY it failed: a port that is already taken gives -P_EADDRINUSE */
 TEST(TcpServerStart, PortInUseReturnsAddrInUse) {
     core::KvStore obj_Store;
     TcpServer     obj_First(0, obj_Store);
-    ASSERT_EQ(obj_First.start(), 0);
+    ASSERT_EQ(obj_First.start(), P_OK);
 
     TcpServer obj_Second(obj_First.port(), obj_Store);
-    EXPECT_EQ(obj_Second.start(), -EADDRINUSE);
+    EXPECT_EQ(obj_Second.start(), -P_EADDRINUSE);
 }
 
 /* run() without a successful start() returns at once instead of looping forever */
-TEST(TcpServerRun, WithoutStartReturnsBadFd) {
+TEST(TcpServerRun, WithoutStartReturnsNotInit) {
     core::KvStore obj_Store;
     TcpServer     obj_Server(0, obj_Store);
-    EXPECT_EQ(obj_Server.run(), -EBADF);
+    EXPECT_EQ(obj_Server.run(), -P_ENOTINIT);
 }
 
-/* run() returns 0 when it stops because stop() was called */
+/* run() returns P_OK when it stops because stop() was called */
 TEST(TcpServerRun, ReturnsZeroAfterStop) {
     core::KvStore obj_Store;
     TcpServer     obj_Server(0, obj_Store);
-    ASSERT_EQ(obj_Server.start(), 0);
+    ASSERT_EQ(obj_Server.start(), P_OK);
 
-    int         int_RunResult = -1;
+    int         int_RunResult = -P_EIO;
     std::thread thr_Server([&] { int_RunResult = obj_Server.run(); });
     obj_Server.stop();
     thr_Server.join();
-    EXPECT_EQ(int_RunResult, 0);
+    EXPECT_EQ(int_RunResult, P_OK);
 }
 
 TEST_F(TcpServerTest, PingReturnsPong) {
