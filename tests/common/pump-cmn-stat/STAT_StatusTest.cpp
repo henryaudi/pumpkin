@@ -1,3 +1,22 @@
+/**
+ ******************************************************************************
+ * @file    STAT_StatusTest.cpp
+ * @author  Shangjie Zheng
+ * @brief   Unit tests for the status codes (STAT).
+ *          This file tests:
+ *           + STAT_ToString: text for known and unknown codes
+ *           + STAT_MapErrno: errno values with and without a code of their own
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2026 Shangjie Zheng.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ ******************************************************************************
+ */
+
 #include "common/pump-cmn-stat/STAT_Status.hpp"
 
 #include <gtest/gtest.h>
@@ -5,7 +24,6 @@
 #include <cerrno>
 #include <string>
 
-namespace pumpkin::common {
 namespace {
 
 TEST(StatusToString, DescribesKnownCodes) {
@@ -31,4 +49,3 @@ TEST(StatusMapErrno, OtherErrnoBecomesIoError) {
 }
 
 }  // namespace
-}  // namespace pumpkin::common

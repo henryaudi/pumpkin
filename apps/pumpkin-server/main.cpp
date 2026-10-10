@@ -74,7 +74,7 @@ int srv_parsePort(const std::string& sz_Text, std::uint16_t& u16_Port) {
     }
 
     const int int_Port = std::stoi(sz_Text);
-    if (int_Port < 0 || int_Port > 65535) {
+    if (int_Port > 65535) {
         return -P_ERANGE;
     }
 

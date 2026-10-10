@@ -216,7 +216,7 @@ int TcpServer::run() {
             Connection& str_Connection = m_map_connections.at(str_PollFd.fd);
             bool        bol_KeepOpen   = (str_PollFd.revents & (POLLERR | POLLNVAL)) == 0;
 
-            /* Read from the client if it's readable or hung up waiting for recv (POLLHUP) */
+            /* Read if data arrived (POLLIN) or the peer hung up (POLLHUP) */
             if (bol_KeepOpen && !str_Connection.bol_CloseAfterWrite &&
                 (str_PollFd.revents & (POLLIN | POLLHUP)) != 0) {
                 bol_KeepOpen = (readFrom(str_PollFd.fd, str_Connection) == P_OK);

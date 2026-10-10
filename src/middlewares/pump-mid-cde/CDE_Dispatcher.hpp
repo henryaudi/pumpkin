@@ -47,7 +47,7 @@ Reply CDE_ExecuteCommand(const Command& str_Command, core::KvStore& obj_Store);
  * @param sz_Line   One line from the client, without its line ending.
  * @param obj_Store The store to run the command against.
  *
- * @return The reply text including "\n", or an empty string for an blank line.
+ * @return The reply text including "\n", or an empty string for a blank line.
  */
 std::string CDE_ProcessLine(const std::string& sz_Line, core::KvStore& obj_Store);
 

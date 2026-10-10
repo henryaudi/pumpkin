@@ -2,7 +2,7 @@
  ******************************************************************************
  * @file    STAT_Status.hpp
  * @author  Shangjie Zheng
- * @brief   Status codes shared by every layer: public interface.
+ * @brief   Status codes shared by every layer: implementation
  *          This file provides:
  *           + P_OK and the P_E* error codes returned by functions that can fail
  *           + STAT_ToString: readable text for a code
