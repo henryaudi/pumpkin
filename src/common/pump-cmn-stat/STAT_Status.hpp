@@ -28,7 +28,7 @@ inline constexpr int P_OK = 0;
 
 /* Errors */
 inline constexpr int P_EIO        = 1;
-inline constexpr int P_ENOMEMM    = 2;
+inline constexpr int P_ENOMEM     = 2;
 inline constexpr int P_EINVARG    = 3;
 inline constexpr int P_EALREADY   = 4;
 inline constexpr int P_ENOTINIT   = 5;
