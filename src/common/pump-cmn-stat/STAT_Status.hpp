@@ -21,8 +21,6 @@
 #ifndef PUMPKIN_STAT_STATUS_HPP_
 #define PUMPKIN_STAT_STATUS_HPP_
 
-namespace pumpkin::common {
-
 /* Success */
 inline constexpr int P_OK = 0;
 
@@ -58,7 +56,5 @@ const char* STAT_ToString(int int_Status);
  * @return The corresponding status code.
  */
 int STAT_MapErrno(int int_Errno);
-
-}  // namespace pumpkin::common
 
 #endif  // PUMPKIN_STAT_STATUS_HPP_
