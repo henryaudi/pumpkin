@@ -51,7 +51,7 @@ const char* STAT_ToString(int int_Status) {
         case P_EPIPE:
             return "connection closed by peer";
         default:
-            return "unknown error";
+            return "unknown status";
     }
 }
 

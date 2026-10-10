@@ -1,6 +1,15 @@
 include(GoogleTest)
 find_package(Threads REQUIRED)
 
+# ---- pump-cmn-stat ----
+add_executable(pump-cmn-stat-tests
+    common/pump-cmn-stat/STAT_StatusTest.cpp)
+target_link_libraries(pump-cmn-stat-tests PRIVATE
+    pump::cmn-stat
+    pumpkin::warnings
+    GTest::gtest_main)
+gtest_discover_tests(pump-cmn-stat-tests)
+
 # ---- pump-core-eng ----
 add_executable(pump-core-eng-tests
     core/pump-core-eng/ENG_KvStoreTest.cpp)
