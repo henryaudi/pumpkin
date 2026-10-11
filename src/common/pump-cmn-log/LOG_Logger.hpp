@@ -7,7 +7,7 @@
  *           + LOG_MODULE_REGISTER: names a source file's module and its level
  *           + LOG_CRT / LOG_ERR / LOG_WRN / LOG_INF / LOG_DBG / LOG_TRC
  *           + LOG_Init: sets the runtime level
- *          Output: [time] [LEVEL   ] [MOD ] [T<n>] message, on stderr.
+ *          Output: [time] [LEVEL   ] [MOD ] [thread id] message, on stderr.
  ******************************************************************************
  * @attention
  *
@@ -38,7 +38,7 @@ inline constexpr int LOG_LEVEL_BUILD_MAX = LOG_LEVEL_TRC;  // Maximum log level 
 #endif  // NDEBUG
 
 /**
- * @brief Sets the runtime log level: lines with a level lower than this will be ignored.
+ * @brief Sets the runtime log level: lines with a level higher than this will be ignored.
  *
  * @param sz_Level "none", "critical", "error", "warn", "info", "debug" or "trace".
  *
@@ -58,6 +58,12 @@ int LOG_Init(const char* sz_Level);
  */
 void LOG_Write(const char* sz_Module, int int_Level, const char* sz_Format, ...)
     __attribute__((format(printf, 3, 4)));
+
+#define LOG_MODULE_REGISTER(module, level)                                \
+    namespace {                                                           \
+    [[maybe_unused]] constexpr const char* log_sz_moduleName   = #module; \
+    [[maybe_unused]] constexpr int         log_int_moduleLevel = (level); \
+    }
 
 #define LOG_WRITE_IF_ENABLED(level, ...)                                                  \
     do {                                                                                  \
