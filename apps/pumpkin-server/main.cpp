@@ -24,9 +24,12 @@
 #include <iostream>
 #include <string>
 
+#include "common/pump-cmn-log/LOG_Logger.hpp"
 #include "common/pump-cmn-stat/STAT_Status.hpp"
 #include "core/pump-core-eng/ENG_KvStore.hpp"
 #include "services/pump-srv-net/NET_TcpServer.hpp"
+
+LOG_MODULE_REGISTER(SRV, LOG_LEVEL_INF)
 
 namespace {
 
@@ -85,13 +88,14 @@ int srv_parsePort(const std::string& sz_Text, std::uint16_t& u16_Port) {
 }  // namespace
 
 int main(int argc, char* argv[]) {
+    LOG_Init("info");
+
     std::uint16_t u16_Port = SRV_DEFAULT_PORT;
     if (argc > 1) {
         const int int_Result = srv_parsePort(argv[1], u16_Port);
         if (int_Result < 0) {
-            std::cerr << "pumpkin-server: invalid port '" << argv[1]
-                      << "': " << STAT_ToString(-int_Result) << "\n"
-                      << "usage: pumpkin-server [port]   (port 0-65535; 0 = any free port)\n";
+            LOG_ERR("invalid port '%s': %s", argv[1], STAT_ToString(-int_Result));
+            std::cerr << "usage: pumpkin-server [port]   (port 0-65535; 0 = any free port)\n";
             return EXIT_FAILURE;
         }
     }
@@ -102,8 +106,7 @@ int main(int argc, char* argv[]) {
     const int int_StartResult = obj_Server.start();
     if (int_StartResult < 0) {
         if (int_StartResult == -P_EADDRINUSE) {
-            std::cerr << "pumpkin-server: port " << u16_Port
-                      << " is in use; pick another port, or 0 for any free port\n";
+            LOG_ERR("port %hu is in use; pick another port, or 0 for any free port", u16_Port);
         }
         return EXIT_FAILURE;
     }
@@ -112,11 +115,10 @@ int main(int argc, char* argv[]) {
     std::signal(SIGINT, srv_handleStopSignal);
     std::signal(SIGTERM, srv_handleStopSignal);
 
-    std::cout << "pumpkin-server listening on 127.0.0.1:" << obj_Server.port() << std::endl;
     const int int_RunResult = obj_Server.run();
 
     srv_atm_server.store(nullptr);  // Clear the global server pointer after stopping
-    std::cout << "pumpkin-server: shutting down" << std::endl;
+    LOG_INF("shutting down");
 
     return (int_RunResult == P_OK) ? EXIT_SUCCESS : EXIT_FAILURE;
 }

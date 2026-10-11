@@ -35,6 +35,7 @@
 #include <string>
 #include <thread>
 
+#include "common/pump-cmn-log/LOG_Logger.hpp"
 #include "common/pump-cmn-stat/STAT_Status.hpp"
 #include "middlewares/pump-mid-pwp/PWP_Codec.hpp"
 
@@ -101,6 +102,7 @@ std::string net_readLines(int fd_Socket, int int_LineCount) {
 class TcpServerTest : public ::testing::Test {
 protected:
     void SetUp() override {
+        LOG_Init("info");  // apply our log format before the server logs
         ASSERT_EQ(m_obj_server.start(), P_OK);
         m_thr_server = std::thread([this] { m_obj_server.run(); });
     }

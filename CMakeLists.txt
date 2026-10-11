@@ -17,12 +17,12 @@ endif()
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 include(Sanitizers)        # global: applies to every target, including third-party
 include(CompilerWarnings)  # per-target: link pumpkin::warnings to opt in
+include(Dependencies)
 
 add_subdirectory(src)
 add_subdirectory(apps)
 
 if(PUMPKIN_BUILD_TESTS)
     enable_testing()
-    include(Dependencies)
     add_subdirectory(tests)
 endif()

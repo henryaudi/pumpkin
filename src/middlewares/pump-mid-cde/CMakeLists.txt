@@ -9,4 +9,5 @@ target_link_libraries(pump-mid-cde
         pump::mid-pwp
         pump::core-eng
     PRIVATE
+        pump::cmn-log
         pumpkin::warnings)
