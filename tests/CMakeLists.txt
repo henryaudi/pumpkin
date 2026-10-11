@@ -10,6 +10,16 @@ target_link_libraries(pump-cmn-stat-tests PRIVATE
     GTest::gtest_main)
 gtest_discover_tests(pump-cmn-stat-tests)
 
+# ---- pump-cmn-log ----
+add_executable(pump-cmn-log-tests
+    common/pump-cmn-log/LOG_LoggerTest.cpp)
+target_link_libraries(pump-cmn-log-tests PRIVATE
+    pump::cmn-log
+    pump::cmn-stat
+    pumpkin::warnings
+    GTest::gtest_main)
+gtest_discover_tests(pump-cmn-log-tests)
+
 # ---- pump-core-eng ----
 add_executable(pump-core-eng-tests
     core/pump-core-eng/ENG_KvStoreTest.cpp)

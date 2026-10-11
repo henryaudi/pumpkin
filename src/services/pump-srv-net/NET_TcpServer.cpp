@@ -30,14 +30,15 @@
 #include <array>
 #include <cerrno>
 #include <csignal>
-#include <cstring>
-#include <iostream>
 #include <optional>
 #include <vector>
 
+#include "common/pump-cmn-log/LOG_Logger.hpp"
 #include "common/pump-cmn-stat/STAT_Status.hpp"
 #include "middlewares/pump-mid-cde/CDE_Dispatcher.hpp"
 #include "middlewares/pump-mid-pwp/PWP_Codec.hpp"
+
+LOG_MODULE_REGISTER(NET, LOG_LEVEL_DBG)
 
 namespace pumpkin::services {
 
@@ -50,15 +51,6 @@ constexpr int         NET_POLL_TIMEOUT_MS  = 100;
 constexpr std::size_t NET_READ_CHUNK_SIZE  = 4096;
 constexpr std::size_t NET_MAX_WRITE_BUFFER = 1024 * 1024;
 constexpr char        NET_DEFAULT_IP[]     = "127.0.0.1";
-
-/**
- * @brief Prints "pumpkin-server: <sz_ErrOp>: <strerror(errno)>" to std::cerr.
- *
- * @param sz_ErrOp The operation that failed, e.g. "bind"
- */
-void net_printError(const std::string& sz_ErrOp) {
-    std::cerr << "pumpkin-server: " << sz_ErrOp << ": " << std::strerror(errno) << "\n";
-}
 
 /**
  * @brief Makes recv/send/accept on the socket return immediately instead of waiting.
@@ -114,14 +106,14 @@ int TcpServer::start() {
     /* Create the listening socket (IPv4, TCP) */
     m_fd_listen = socket(AF_INET, SOCK_STREAM, 0);
     if (m_fd_listen < 0) {
-        net_printError("socket");  // This call might set errno so we buffer it first
+        LOG_ERR("socket() failed: %s (errno %d)", STAT_ToString(STAT_MapErrno(errno)), errno);
         return -P_EIO;
     }
 
     /* Allow restarting the server right away on the same port */
     const int int_Enable = 1;
     if (setsockopt(m_fd_listen, SOL_SOCKET, SO_REUSEADDR, &int_Enable, sizeof(int_Enable)) < 0) {
-        net_printError("setsockopt");
+        LOG_ERR("setsockopt() failed: %s (errno %d)", STAT_ToString(STAT_MapErrno(errno)), errno);
         return -P_EIO;
     }
 
@@ -130,35 +122,39 @@ int TcpServer::start() {
     str_Address.sin_family = AF_INET;  // IPv4
     str_Address.sin_port   = htons(m_u16_port);
     if (inet_pton(AF_INET, NET_DEFAULT_IP, &str_Address.sin_addr) != 1) {
-        std::cerr << "pumpkin-server: invalid IP address: " << NET_DEFAULT_IP << "\n";
-        return -P_EINVARG;  // Invalid argument
+        LOG_ERR("invalid IP address %s: %s", NET_DEFAULT_IP, STAT_ToString(P_EINVARG));
+        return -P_EINVARG;
     }
     if (bind(m_fd_listen, reinterpret_cast<sockaddr*>(&str_Address), sizeof(str_Address)) < 0) {
         const int int_Err = -STAT_MapErrno(errno);
-        net_printError("bind");
+        LOG_ERR("bind() to %s:%hu failed: %s (errno %d)", NET_DEFAULT_IP, m_u16_port,
+                STAT_ToString(-int_Err), errno);
         return int_Err;
     }
 
     /* Start listening for incoming connections */
     if (listen(m_fd_listen, SOMAXCONN) < 0) {
-        net_printError("listen");
+        LOG_ERR("listen() failed: %s (errno %d)", STAT_ToString(STAT_MapErrno(errno)), errno);
         return -P_EIO;
     }
 
     /* Set the listening socket to non-blocking mode */
     const int int_Res = net_setSocketNonBlocking(m_fd_listen);
     if (int_Res < 0) {
-        net_printError("fcntl");
+        LOG_ERR("fcntl() on the listening socket failed: %s (errno %d)", STAT_ToString(-int_Res),
+                errno);
         return int_Res;
     }
 
     /* Get port number bound to the socket */
     socklen_t u32_Length = sizeof(str_Address);
     if (getsockname(m_fd_listen, reinterpret_cast<sockaddr*>(&str_Address), &u32_Length) < 0) {
-        net_printError("getsockname");
+        LOG_ERR("getsockname() failed: %s (errno %d)", STAT_ToString(STAT_MapErrno(errno)), errno);
         return -P_EIO;
     }
     m_u16_port = ntohs(str_Address.sin_port);
+
+    LOG_INF("listening on %s:%hu", NET_DEFAULT_IP, m_u16_port);
     return P_OK;
 }
 
@@ -198,7 +194,7 @@ int TcpServer::run() {
             if (errno == EINTR) {
                 continue;  // Interrupted by signal, retry poll()
             }
-            net_printError("poll");
+            LOG_ERR("poll() failed: %s (errno %d)", STAT_ToString(STAT_MapErrno(errno)), errno);
             return -P_EIO;  // Exit the run loop on poll error
         }
 
@@ -219,11 +215,21 @@ int TcpServer::run() {
             /* Read if data arrived (POLLIN) or the peer hung up (POLLHUP) */
             if (bol_KeepOpen && !str_Connection.bol_CloseAfterWrite &&
                 (str_PollFd.revents & (POLLIN | POLLHUP)) != 0) {
-                bol_KeepOpen = (readFrom(str_PollFd.fd, str_Connection) == P_OK);
+                const int int_Result = readFrom(str_PollFd.fd, str_Connection);
+                if (int_Result < 0) {
+                    LOG_DBG("client fd %d: read failed: %s", str_PollFd.fd,
+                            STAT_ToString(-int_Result));
+                }
+                bol_KeepOpen = (int_Result == P_OK);
             }
             /* Write to the client if there's data in the write buffer */
             if (bol_KeepOpen && !str_Connection.sz_WriteBuffer.empty()) {
-                bol_KeepOpen = (writeTo(str_PollFd.fd, str_Connection) == P_OK);
+                const int int_Result = writeTo(str_PollFd.fd, str_Connection);
+                if (int_Result < 0) {
+                    LOG_DBG("client fd %d: write failed: %s", str_PollFd.fd,
+                            STAT_ToString(-int_Result));
+                }
+                bol_KeepOpen = (int_Result == P_OK);
             }
             /* Close the connection if the peer has closed it or we are supposed to close after
              * writing, and the write buffer is empty */
@@ -263,19 +269,23 @@ void TcpServer::acceptConnections() {
 
         if (fd_Client < 0) {
             if (!net_isTryAgain()) {
-                net_printError("accept");
+                LOG_ERR("accept() failed: %s (errno %d)", STAT_ToString(STAT_MapErrno(errno)),
+                        errno);
             }
             return;
         }
 
-        if (net_setSocketNonBlocking(fd_Client) < 0) {
-            net_printError("fcntl");
+        const int int_Res = net_setSocketNonBlocking(fd_Client);
+        if (int_Res < 0) {
+            LOG_ERR("fcntl() on client fd %d failed: %s (errno %d)", fd_Client,
+                    STAT_ToString(-int_Res), errno);
             close(fd_Client);
             return;
         }
 
         /* Successfully accepted and configured a new client socket */
         m_map_connections[fd_Client] = Connection{};
+        LOG_DBG("client fd %d connected", fd_Client);
     }
 }
 
@@ -305,6 +315,8 @@ int TcpServer::readFrom(int fd_Client, Connection& str_Connection) {
             : str_Connection.sz_ReadBuffer.size() - (siz_LastNewLineIdx + 1);
 
     if (siz_Unfinished > middlewares::PWP_MAX_LINE_LENGTH) {
+        LOG_WRN("client fd %d: line longer than %zu bytes, closing", fd_Client,
+                middlewares::PWP_MAX_LINE_LENGTH);
         /* Tell the client why, then close once the error has been sent. The rest of its input is
          * dropped - the connection is closing anyway */
         str_Connection.sz_ReadBuffer.clear();
@@ -348,6 +360,7 @@ void TcpServer::processPendingLines(Connection& str_Connection) {
 }
 
 void TcpServer::closeConnection(int fd_Client) {
+    LOG_DBG("client fd %d closed", fd_Client);
     close(fd_Client);  // close the socket file descriptor
     m_map_connections.erase(fd_Client);
 }
