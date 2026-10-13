@@ -153,6 +153,42 @@ TEST(TcpServerRun, ReturnsZeroAfterStop) {
     EXPECT_EQ(int_RunResult, P_OK);
 }
 
+/* Issue #9: a failed start() leaves the server not started, so run() reports it */
+TEST(TcpServerStart, FailureLeavesServerNotStarted) {
+    core::KvStore obj_Store;
+    TcpServer     obj_First(0, obj_Store);
+    ASSERT_EQ(obj_First.start(), P_OK);
+
+    TcpServer obj_Second(obj_First.port(), obj_Store);
+    EXPECT_EQ(obj_Second.start(), -P_EADDRINUSE);
+    EXPECT_EQ(obj_Second.run(), -P_ENOTINIT);
+}
+
+/* Issue #9: after a failure, start() can be retried once the port is free */
+TEST(TcpServerStart, CanBeRetriedAfterFailure) {
+    core::KvStore obj_Store;
+    std::uint16_t u16_Port = 0;
+    {
+        TcpServer obj_First(0, obj_Store);
+        ASSERT_EQ(obj_First.start(), P_OK);
+        u16_Port = obj_First.port();
+
+        TcpServer obj_Second(u16_Port, obj_Store);
+        EXPECT_EQ(obj_Second.start(), -P_EADDRINUSE);
+    }  // both destroyed here: the port is free again
+
+    TcpServer obj_Retry(u16_Port, obj_Store);
+    EXPECT_EQ(obj_Retry.start(), P_OK);
+}
+
+/* start() on a server that is already started is refused instead of leaking a second socket */
+TEST(TcpServerStart, SecondStartReturnsAlready) {
+    core::KvStore obj_Store;
+    TcpServer     obj_Server(0, obj_Store);
+    ASSERT_EQ(obj_Server.start(), P_OK);
+    EXPECT_EQ(obj_Server.start(), -P_EALREADY);
+}
+
 TEST_F(TcpServerTest, PingReturnsPong) {
     const int fd_Client = connectClient();
     ASSERT_NE(fd_Client, -1);
