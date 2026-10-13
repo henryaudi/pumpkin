@@ -27,7 +27,7 @@
 #include "common/pump-cmn-log/LOG_Logger.hpp"
 #include "middlewares/pump-mid-pwp/PWP_Codec.hpp"
 
-LOG_MODULE_REGISTER(CDE, LOG_LEVEL_TRC)
+LOG_MODULE_REGISTER(CDE, LOG_LEVEL_DBG)
 
 namespace {
 // ================================================================================================
@@ -55,8 +55,10 @@ Reply CDE_ExecuteCommand(const Command& str_Command, core::KvStore& obj_Store) {
                 const std::string& sz_Val = str_Command.vec_Args[siz_Idx + 1];
                 obj_Store.set(sz_Key, sz_Val);
 
+                LOG_INF("SET '%s' (%zu bytes)", sz_Key.c_str(), sz_Val.size());
+
                 const std::size_t siz_Shown = std::min(sz_Val.size(), CDE_LOG_VALUE_PREVIEW);
-                LOG_INF("SET '%s' = '%.*s'%s (%zu bytes)", sz_Key.c_str(),
+                LOG_DBG("SET '%s' = '%.*s'%s (%zu bytes)", sz_Key.c_str(),
                         static_cast<int>(siz_Shown), sz_Val.c_str(),
                         (sz_Val.size() > siz_Shown) ? "..." : "", sz_Val.size());
             }
@@ -70,6 +72,8 @@ Reply CDE_ExecuteCommand(const Command& str_Command, core::KvStore& obj_Store) {
                 return Reply{ReplyType::REPLY_NIL, "", 0};
             }
             const std::string& sz_Value  = opt_Value.value();
+            LOG_INF("GET '%s': found (%zu bytes)", sz_Key.c_str(), sz_Value.size());
+
             const std::size_t  siz_Shown = std::min(sz_Value.size(), CDE_LOG_VALUE_PREVIEW);
             LOG_INF("GET '%s' = '%.*s'%s (%zu bytes)", sz_Key.c_str(), static_cast<int>(siz_Shown),
                     sz_Value.c_str(), (sz_Value.size() > siz_Shown) ? "..." : "", sz_Value.size());
