@@ -58,9 +58,8 @@ Reply CDE_ExecuteCommand(const Command& str_Command, core::KvStore& obj_Store) {
                 LOG_INF("SET '%s' (%zu bytes)", sz_Key.c_str(), sz_Val.size());
 
                 const std::size_t siz_Shown = std::min(sz_Val.size(), CDE_LOG_VALUE_PREVIEW);
-                LOG_DBG("SET '%s' = '%.*s'%s", sz_Key.c_str(),
-                        static_cast<int>(siz_Shown), sz_Val.c_str(),
-                        (sz_Val.size() > siz_Shown) ? "..." : "");
+                LOG_DBG("SET '%s' = '%.*s'%s", sz_Key.c_str(), static_cast<int>(siz_Shown),
+                        sz_Val.c_str(), (sz_Val.size() > siz_Shown) ? "..." : "");
             }
             return Reply{ReplyType::REPLY_OK, "", 0};
         }
@@ -71,10 +70,10 @@ Reply CDE_ExecuteCommand(const Command& str_Command, core::KvStore& obj_Store) {
                 LOG_INF("GET '%s': not found", sz_Key.c_str());
                 return Reply{ReplyType::REPLY_NIL, "", 0};
             }
-            const std::string& sz_Value  = opt_Value.value();
+            const std::string& sz_Value = opt_Value.value();
             LOG_INF("GET '%s': found (%zu bytes)", sz_Key.c_str(), sz_Value.size());
 
-            const std::size_t  siz_Shown = std::min(sz_Value.size(), CDE_LOG_VALUE_PREVIEW);
+            const std::size_t siz_Shown = std::min(sz_Value.size(), CDE_LOG_VALUE_PREVIEW);
             LOG_DBG("GET '%s' = '%.*s'%s", sz_Key.c_str(), static_cast<int>(siz_Shown),
                     sz_Value.c_str(), (sz_Value.size() > siz_Shown) ? "..." : "");
             return Reply{ReplyType::REPLY_VALUE, sz_Value, 0};
