@@ -22,6 +22,8 @@
 
 #include <string>
 
+#include "common/pump-cmn-log/LOG_Logger.hpp"
+
 namespace pumpkin::middlewares {
 namespace {
 
@@ -78,6 +80,21 @@ TEST(ProcessLine, WhitespaceOnlyLineIsIgnored) {
     core::KvStore obj_Store;
     EXPECT_EQ(CDE_ProcessLine("   ", obj_Store), "");
     EXPECT_EQ(CDE_ProcessLine(" \t\r ", obj_Store), "");
+}
+
+/* Issue #8: at the default level, values never appera in the log; keys and sizes do */
+TEST(ProcessLine, ValuesAreNotLoggedAtInfo) {
+    LOG_Init("info");
+    core::KvStore obj_Store;
+
+    testing::internal::CaptureStderr();
+    CDE_ProcessLine("SET token s3cr3t", obj_Store);
+    CDE_ProcessLine("GET token", obj_Store);
+    const std::string sz_Output = testing::internal::GetCapturedStderr();
+
+    EXPECT_NE(sz_Output.find("SET 'token' (6 bytes)"), std::string::npos) << sz_Output;
+    EXPECT_NE(sz_Output.find("GET 'token': found (6 bytes)"), std::string::npos) << sz_Output;
+    EXPECT_EQ(sz_Output.find("s3cr3t"), std::string::npos) << sz_Output;
 }
 
 }  // namespace
