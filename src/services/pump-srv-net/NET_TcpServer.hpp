@@ -48,10 +48,11 @@ public:
     TcpServer& operator=(const TcpServer&) = delete;
 
     /**
-     * @brief Opens the listening socket.
+     * @brief Opens the listening socket. If it fails, nothing is left open, so start() can be
+     *        safely retried.
      *
-     * @return P_OK on success; -P_EADDRINUSE / -P_EACCES if bind() failed; -P_EINVARG for a bad
-     *         IP address; -P_EIO for any other socket error.
+     * @return P_OK on success; -P_EALREADY if already started; -P_EADDRINUSE / -P_EACCES if bind()
+     *         failed; -P_EINVARG for a bad IP address; -P_EIO for any other socket error.
      */
     int start();
 
@@ -83,6 +84,7 @@ private:
         bool        bol_CloseAfterWrite = false;
     };
 
+    int  openListenSocket();
     void acceptConnections();
     int  readFrom(int fd_Client, Connection& str_Connection);
     int  writeTo(int fd_Client, Connection& str_Connection);

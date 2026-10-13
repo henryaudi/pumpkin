@@ -99,63 +99,22 @@ TcpServer::~TcpServer() {
 }
 
 int TcpServer::start() {
+    if (m_fd_listen != -1) {
+        LOG_WRN("start() called on a server that is already started");
+        return -P_EALREADY;
+    }
+
     /* Writing to a client that already disconnected raises SIGPIPE, which kills the whole process
        by default. Ignore it (SIG_IGN), so send() just returns with an error instead */
     std::signal(SIGPIPE, SIG_IGN);
 
-    /* Create the listening socket (IPv4, TCP) */
-    m_fd_listen = socket(AF_INET, SOCK_STREAM, 0);
-    if (m_fd_listen < 0) {
-        LOG_ERR("socket() failed: %s (errno %d)", STAT_ToString(STAT_MapErrno(errno)), errno);
-        return -P_EIO;
+    const int int_Result = openListenSocket();
+    if (int_Result < 0 && m_fd_listen != -1) {
+        close(m_fd_listen);
+        m_fd_listen = -1;
     }
 
-    /* Allow restarting the server right away on the same port */
-    const int int_Enable = 1;
-    if (setsockopt(m_fd_listen, SOL_SOCKET, SO_REUSEADDR, &int_Enable, sizeof(int_Enable)) < 0) {
-        LOG_ERR("setsockopt() failed: %s (errno %d)", STAT_ToString(STAT_MapErrno(errno)), errno);
-        return -P_EIO;
-    }
-
-    /* Bind the listening socket to the specified IP address and port */
-    sockaddr_in str_Address{};
-    str_Address.sin_family = AF_INET;  // IPv4
-    str_Address.sin_port   = htons(m_u16_port);
-    if (inet_pton(AF_INET, NET_DEFAULT_IP, &str_Address.sin_addr) != 1) {
-        LOG_ERR("invalid IP address %s: %s", NET_DEFAULT_IP, STAT_ToString(P_EINVARG));
-        return -P_EINVARG;
-    }
-    if (bind(m_fd_listen, reinterpret_cast<sockaddr*>(&str_Address), sizeof(str_Address)) < 0) {
-        const int int_Err = -STAT_MapErrno(errno);
-        LOG_ERR("bind() to %s:%hu failed: %s (errno %d)", NET_DEFAULT_IP, m_u16_port,
-                STAT_ToString(-int_Err), errno);
-        return int_Err;
-    }
-
-    /* Start listening for incoming connections */
-    if (listen(m_fd_listen, SOMAXCONN) < 0) {
-        LOG_ERR("listen() failed: %s (errno %d)", STAT_ToString(STAT_MapErrno(errno)), errno);
-        return -P_EIO;
-    }
-
-    /* Set the listening socket to non-blocking mode */
-    const int int_Res = net_setSocketNonBlocking(m_fd_listen);
-    if (int_Res < 0) {
-        LOG_ERR("fcntl() on the listening socket failed: %s (errno %d)", STAT_ToString(-int_Res),
-                errno);
-        return int_Res;
-    }
-
-    /* Get port number bound to the socket */
-    socklen_t u32_Length = sizeof(str_Address);
-    if (getsockname(m_fd_listen, reinterpret_cast<sockaddr*>(&str_Address), &u32_Length) < 0) {
-        LOG_ERR("getsockname() failed: %s (errno %d)", STAT_ToString(STAT_MapErrno(errno)), errno);
-        return -P_EIO;
-    }
-    m_u16_port = ntohs(str_Address.sin_port);
-
-    LOG_INF("listening on %s:%hu", NET_DEFAULT_IP, m_u16_port);
-    return P_OK;
+    return int_Result;
 }
 
 int TcpServer::run() {
@@ -262,6 +221,62 @@ std::uint16_t TcpServer::port() const {
 // ================================================================================================
 // PRIVATE SCOPE
 // ================================================================================================
+int TcpServer::openListenSocket() {
+    /* Create the listening socket (IPv4, TCP) */
+    m_fd_listen = socket(AF_INET, SOCK_STREAM, 0);
+    if (m_fd_listen < 0) {
+        LOG_ERR("socket() failed: %s (errno %d)", STAT_ToString(STAT_MapErrno(errno)), errno);
+        return -P_EIO;
+    }
+
+    /* Allow restarting the server right away on the same port */
+    const int int_Enable = 1;
+    if (setsockopt(m_fd_listen, SOL_SOCKET, SO_REUSEADDR, &int_Enable, sizeof(int_Enable)) < 0) {
+        LOG_ERR("setsockopt() failed: %s (errno %d)", STAT_ToString(STAT_MapErrno(errno)), errno);
+        return -P_EIO;
+    }
+
+    /* Bind the listening socket to the specified IP address and port */
+    sockaddr_in str_Address{};
+    str_Address.sin_family = AF_INET;  // IPv4
+    str_Address.sin_port   = htons(m_u16_port);
+    if (inet_pton(AF_INET, NET_DEFAULT_IP, &str_Address.sin_addr) != 1) {
+        LOG_ERR("invalid IP address %s: %s", NET_DEFAULT_IP, STAT_ToString(P_EINVARG));
+        return -P_EINVARG;
+    }
+    if (bind(m_fd_listen, reinterpret_cast<sockaddr*>(&str_Address), sizeof(str_Address)) < 0) {
+        const int int_Err = -STAT_MapErrno(errno);
+        LOG_ERR("bind() to %s:%hu failed: %s (errno %d)", NET_DEFAULT_IP, m_u16_port,
+                STAT_ToString(-int_Err), errno);
+        return int_Err;
+    }
+
+    /* Start listening for incoming connections */
+    if (listen(m_fd_listen, SOMAXCONN) < 0) {
+        LOG_ERR("listen() failed: %s (errno %d)", STAT_ToString(STAT_MapErrno(errno)), errno);
+        return -P_EIO;
+    }
+
+    /* Set the listening socket to non-blocking mode */
+    const int int_Res = net_setSocketNonBlocking(m_fd_listen);
+    if (int_Res < 0) {
+        LOG_ERR("fcntl() on the listening socket failed: %s (errno %d)", STAT_ToString(-int_Res),
+                errno);
+        return int_Res;
+    }
+
+    /* Get port number bound to the socket */
+    socklen_t u32_Length = sizeof(str_Address);
+    if (getsockname(m_fd_listen, reinterpret_cast<sockaddr*>(&str_Address), &u32_Length) < 0) {
+        LOG_ERR("getsockname() failed: %s (errno %d)", STAT_ToString(STAT_MapErrno(errno)), errno);
+        return -P_EIO;
+    }
+    m_u16_port = ntohs(str_Address.sin_port);
+
+    LOG_INF("listening on %s:%hu", NET_DEFAULT_IP, m_u16_port);
+    return P_OK;
+}
+
 void TcpServer::acceptConnections() {
     /* Several clients may be waiting to connect, accept til there are none left */
     while (true) {
