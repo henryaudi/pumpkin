@@ -32,23 +32,17 @@ namespace pumpkin::middlewares {
 /*
    PBWP frame layout. All multi-byte integers are little-endian.
 
-   Request header (12 bytes):
+   Header (12 bytes), the same for requests and replies:
    +---------+---------+---------+---------+---------+---------+---------+---------+
    | Byte 0  | Byte 1  | Byte 2  | Byte 3  | Bytes 4-7         | Bytes 8-11        |
    +---------+---------+---------+---------+-------------------+-------------------+
-   | Magic   | Version | Opcode  | Reserved| Request id        | Payload length    |
-   | 0xB1    | 1       | OP_*    | 0       | u32, chosen by    | u32, bytes after  |
-   |         |         |         |         | the client        | the header        |
+   | Magic   | Version | Type    | Flags   | Request id        | Payload length    |
+   | 0xB1    | 1       | OP_* or | PBWP_   | u32, chosen by    | u32, bytes after  |
+   |         |         | RPL_*   | FLAG_*  | the client, copied| the header        |
+   |         |         |         |         | into the reply    |                   |
    +---------+---------+---------+---------+-------------------+-------------------+
 
-   Reply header (12 bytes):
-   +---------+---------+---------+---------+---------+---------+---------+---------+
-   | Byte 0  | Byte 1  | Byte 2  | Byte 3  | Bytes 4-7         | Bytes 8-11        |
-   +---------+---------+---------+---------+-------------------+-------------------+
-   | Magic   | Version | Reply   | Status  | Request id        | Payload length    |
-   | 0xB1    | 1       | type    | P_OK or | u32, copied from  | u32, bytes after  |
-   |         |         | RPL_*   | P_E*    | the request       | the header        |
-   +---------+---------+---------+---------+-------------------+-------------------+
+   Flags: bit 0 = PBWP_FLAG_MORE (reserved for chunked messages); bits 1-7 reserved.
 
    Request payload (starts at byte 12):
    +-----------+------------+-----------------+------------+-----------------+-----
@@ -60,11 +54,15 @@ namespace pumpkin::middlewares {
      RPL_OK, RPL_NIL : empty (payload length 0)
      RPL_VALUE       : the value bytes
      RPL_INTEGER     : 8-byte signed integer
-     RPL_ERROR       : error message text (the code is in the Status byte)
+     RPL_ERROR       : u8 status (P_E* code), then the error message text
 
    Example: SET a 1 with request id 7 (24 bytes)
      B1 01 03 00 | 07 00 00 00 | 0C 00 00 00 | 02 00 | 01 00 00 00 61 | 01 00 00 00 31
      header                                  | argc  | key "a"        | value "1"
+
+   Example: error P_EINVARG "bad" for request id 4 (16 bytes)
+     B1 01 04 00 | 04 00 00 00 | 04 00 00 00 | 03     | 62 61 64
+     header                                  | status | message "bad"
 */
 
 /* NOTE: For future design changes, the magic byte must be greater than all command codes */
@@ -93,7 +91,7 @@ enum class PbwpReplyType : std::uint8_t {
     RPL_VALUE   = 0x01,  // payload: the value bytes
     RPL_NIL     = 0x02,  // no payload
     RPL_INTEGER = 0x03,  // payload: 8-byte signed integer
-    RPL_ERROR   = 0x04,  // payload: error message; header byte 3: the P_E* status code
+    RPL_ERROR   = 0x04,  // payload: u8 status (P_E* code), then the error message text
 };
 
 /**
@@ -107,7 +105,7 @@ struct PbwpRequest {
 
 struct PbwpReply {
     PbwpReplyType enm_Type      = PbwpReplyType::RPL_OK;
-    std::uint8_t  u8_Status     = 0;
+    std::uint8_t  u8_Status     = 0;  // P_E* code for RPL_ERROR, P_OK otherwise
     std::uint32_t u32_RequestId = 0;
     std::string   sz_Payload;
     std::int64_t  s64_Integer = 0;
