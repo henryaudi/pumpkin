@@ -65,12 +65,15 @@ namespace pumpkin::middlewares {
      header                                  | status | message "bad"
 */
 
-/* NOTE: For future design changes, the magic byte must be greater than all command codes */
+/* NOTE: For future design changes, the magic byte must be greater than all opcodes */
 inline constexpr std::uint8_t PBWP_MAGIC            = 0xB1;
 inline constexpr std::uint8_t PBWP_VERSION          = 1;
 inline constexpr std::size_t  PBWP_HEADER_SIZE      = 12;                // 12 Byte
 inline constexpr std::size_t  PBWP_MAX_PAYLOAD_SIZE = 16 * 1024 * 1024;  // 16 MiB
 inline constexpr std::size_t  PBWP_MAX_KEY_SIZE     = 64 * 1024;         // 64 KiB
+
+/* Header byte 3. Reserved in version 1: frames with any flag set are rejected */
+inline constexpr std::uint8_t PBWP_FLAG_MORE = 0x01;  // More frames of this message follow
 
 /**
  * @brief Request opcodes (header byte 2). Values are fixed: never renumber, only add.

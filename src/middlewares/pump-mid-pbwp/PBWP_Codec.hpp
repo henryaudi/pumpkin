@@ -38,7 +38,7 @@ namespace pumpkin::middlewares {
  *
  * @param str_Request  The opcode, request id and arguments to send.
  * @param ptr_Out      Where the frame is written, starting at ptr_Out[0].
- * @param siz_Capacity Bytes available at ptr_Out.
+ * @param siz_Capacity Bytes available at ptr_Out buffer.
  *
  * @return Bytes written (> 0), or the required size for a size query. -P_ERANGE if the buffer is
  *         too small or the frame exceeds the protocol limits; -P_EINVARG if ptr_Out is NULL with a
@@ -81,7 +81,8 @@ int PBWP_PbwpToCommand(PbwpRequest* ptr_Request, Command* ptr_Command, std::stri
  * @brief Encodes one reply frame into a caller-provided byte buffer. Same size-query and return
  *        conventions as PBWP_EncodeRequest().
  *
- * @param str_Reply    Reply type, status, request id and payload (or integer) to send.
+ * @param str_Reply    Reply type, request id and payload (or integer) to send. u8_Status is
+ *                     written only for RPL_ERROR, as the first payload byte.
  * @param ptr_Out      Where the frame is written, starting at ptr_Out[0].
  * @param siz_Capacity Bytes available at ptr_Out.
  *
