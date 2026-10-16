@@ -151,6 +151,19 @@ uint64_t pbwp_getLe64(const uint8_t* ptr_In) {
            (static_cast<uint64_t>(pbwp_getLe32(ptr_In)));
 }
 
+/**
+ * @brief Checks the header at ptr_In[0] and whether the whole frame has arrived.
+ *
+ * @details Only reads the fields it validates. Callers read the type and request id
+ *          themselves, at the PBWP_OFFSET_* positions, once this returns > 0.
+ *
+ * @param ptr_In     Received bytes.
+ * @param siz_Length Number of bytes at ptr_In.
+ *
+ * @return The whole frame size (> 0) if header and payload have fully arrived; 0 if more bytes
+ *         are needed; -P_EINVARG for a wrong magic or version, or any flag set; -P_ERANGE for a
+ *         payload over the limit.
+ */
 int pbwp_parseHeader(const uint8_t* ptr_In, size_t siz_Length) {
     if (siz_Length < PBWP_HEADER_SIZE) {
         return 0;  // Incomplete frame header.
@@ -234,5 +247,68 @@ int PBWP_EncodeRequest(const PbwpRequest& str_Request, uint8_t* ptr_Out, size_t 
     }
 
     return static_cast<int>(siz_FrameSize);
+}
+
+int PBWP_DecodeRequest(const uint8_t* ptr_In, size_t siz_Length, PbwpRequest* ptr_Request) {
+    if (ptr_Request == nullptr || (ptr_In == nullptr && siz_Length > 0)) {
+        LOG_ERR("DecodeRequest called with a NULL pointer");
+        return -P_EINVARG;
+    }
+
+    const int int_FrameSize = pbwp_parseHeader(ptr_In, siz_Length);
+    if (int_FrameSize <= 0) {
+        return int_FrameSize;  // 0: need more bytes, <0: broken stream
+    }
+
+    const uint8_t u8_Opcode = ptr_In[PBWP_OFFSET_TYPE];
+    // TODO: next version add flags byte
+    const uint32_t u32_RequestId = pbwp_getLe32(ptr_In + PBWP_OFFSET_REQ_ID);
+    const uint32_t u32_PayloadLength =
+        static_cast<uint32_t>(int_FrameSize) - static_cast<uint32_t>(PBWP_HEADER_SIZE);
+
+    if (u32_PayloadLength < sizeof(uint16_t)) {
+        LOG_WRN("request %u: payload of %u bytes has no argument count", u32_RequestId,
+                u32_PayloadLength);
+        return -P_EINVARG;
+    }
+
+    const size_t   siz_End      = static_cast<size_t>(int_FrameSize);
+    size_t         siz_Pos      = PBWP_HEADER_SIZE;
+    const uint16_t u16_ArgCount = pbwp_getLe16(ptr_In + siz_Pos);
+    siz_Pos += sizeof(uint16_t);
+
+    std::vector<std::string> vec_Args;
+    vec_Args.reserve(u16_ArgCount);
+    for (uint16_t i = 0; i < u16_ArgCount; i++) {
+        if (siz_End - siz_Pos < sizeof(uint32_t)) {
+            LOG_WRN("request %u: argument %u has hit the end of the payload and beyond",
+                    u32_RequestId, static_cast<unsigned>(i));
+            return -P_EINVARG;
+        }
+
+        const uint32_t u32_ArgLength = pbwp_getLe32(ptr_In + siz_Pos);
+        siz_Pos += sizeof(uint32_t);
+        if (siz_End - siz_Pos < u32_ArgLength) {
+            LOG_WRN("request %u: argument %u claims %u bytes, only %zu left", u32_RequestId,
+                    static_cast<unsigned>(i), u32_ArgLength, siz_End - siz_Pos);
+            return -P_EINVARG;
+        }
+        /* Convert from raw bytes to std::string */
+        vec_Args.emplace_back(reinterpret_cast<const char*>(ptr_In + siz_Pos), u32_ArgLength);
+        siz_Pos += u32_ArgLength;
+    }
+    if (siz_Pos != siz_End) {
+        LOG_WRN("request %u: %zu bytes left over after the last argument",  // [NEW]
+                u32_RequestId, siz_End - siz_Pos);
+        return -P_EINVARG;
+    }
+
+    LOG_TRC("request %u: opcode %u, %u arguments, %d bytes", u32_RequestId,
+            static_cast<unsigned>(u8_Opcode), static_cast<unsigned>(u16_ArgCount), int_FrameSize);
+    ptr_Request->enm_Opcode = static_cast<PbwpOpcode>(u8_Opcode);
+    ptr_Request->u32_RequestId = u32_RequestId;
+    ptr_Request->vec_Args = std::move(vec_Args);
+
+    return int_FrameSize;
 }
 }  // namespace pumpkin::middlewares
