@@ -31,9 +31,9 @@ namespace pumpkin::middlewares {
 enum class ReplyType { REPLY_OK, REPLY_PONG, REPLY_VALUE, REPLY_NIL, REPLY_INTEGER, REPLY_ERROR };
 
 struct Reply {
-    ReplyType    enm_Type = ReplyType::REPLY_OK;
-    std::string  sz_Text;
-    std::int64_t s64_Integer = 0;
+    ReplyType   enm_Type = ReplyType::REPLY_OK;
+    std::string sz_Text;
+    int64_t     s64_Integer = 0;
 };
 
 }  // namespace pumpkin::middlewares

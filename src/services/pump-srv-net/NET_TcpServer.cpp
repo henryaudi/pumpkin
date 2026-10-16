@@ -47,10 +47,10 @@ namespace {
 // PRIVATE SCOPE
 // ================================================================================================
 
-constexpr int         NET_POLL_TIMEOUT_MS  = 100;
-constexpr std::size_t NET_READ_CHUNK_SIZE  = 4096;
-constexpr std::size_t NET_MAX_WRITE_BUFFER = 1024 * 1024;
-constexpr char        NET_DEFAULT_IP[]     = "127.0.0.1";
+constexpr int    NET_POLL_TIMEOUT_MS  = 100;
+constexpr size_t NET_READ_CHUNK_SIZE  = 4096;
+constexpr size_t NET_MAX_WRITE_BUFFER = 1024 * 1024;
+constexpr char   NET_DEFAULT_IP[]     = "127.0.0.1";
 
 /**
  * @brief Makes recv/send/accept on the socket return immediately instead of waiting.
@@ -83,7 +83,7 @@ bool net_isTryAgain() {
 // ================================================================================================
 // GLOBAL SCOPE
 // ================================================================================================
-TcpServer::TcpServer(std::uint16_t u16_Port, core::KvStore& obj_Store)
+TcpServer::TcpServer(uint16_t u16_Port, core::KvStore& obj_Store)
     : m_u16_port(u16_Port), m_obj_store(obj_Store) {}
 
 TcpServer::~TcpServer() {
@@ -214,7 +214,7 @@ void TcpServer::stop() {
     m_atm_stopRequested = true;
 }
 
-std::uint16_t TcpServer::port() const {
+uint16_t TcpServer::port() const {
     return m_u16_port;
 }
 
@@ -316,15 +316,15 @@ int TcpServer::readFrom(int fd_Client, Connection& str_Connection) {
     }
 
     /* Append the received data to the connection's read buffer */
-    str_Connection.sz_ReadBuffer.append(arr_Chunks.data(), static_cast<std::size_t>(ssiz_Received));
+    str_Connection.sz_ReadBuffer.append(arr_Chunks.data(), static_cast<size_t>(ssiz_Received));
 
     /* Process any complete lines that have been received per write buffer allows */
     processPendingLines(str_Connection);
 
     /* Bytes after the last newline are unfinished line. If it is already too long, drop this client
        (complete lines that are only waiting for write-buffer space don't count) */
-    const std::size_t siz_LastNewLineIdx = str_Connection.sz_ReadBuffer.rfind('\n');
-    const std::size_t siz_Unfinished =
+    const size_t siz_LastNewLineIdx = str_Connection.sz_ReadBuffer.rfind('\n');
+    const size_t siz_Unfinished =
         (siz_LastNewLineIdx == std::string::npos)
             ? str_Connection.sz_ReadBuffer.size()
             : str_Connection.sz_ReadBuffer.size() - (siz_LastNewLineIdx + 1);
@@ -351,7 +351,7 @@ int TcpServer::writeTo(int fd_Client, Connection& str_Connection) {
     }
 
     /* send() may accept only part of the data: drop what was sent, keep the rest */
-    str_Connection.sz_WriteBuffer.erase(0, static_cast<std::size_t>(ssiz_Sent));
+    str_Connection.sz_WriteBuffer.erase(0, static_cast<size_t>(ssiz_Sent));
 
     /* send() freed space in the write buffer: run any commands still waiting in the read buffer
        and queue their replies */

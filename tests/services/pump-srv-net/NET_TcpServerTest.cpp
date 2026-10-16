@@ -47,7 +47,7 @@ namespace {
  *
  * @return The connected socket, or -1 on failure.
  */
-int net_connectTo(std::uint16_t u16_Port) {
+int net_connectTo(uint16_t u16_Port) {
     const int fd_Socket = socket(AF_INET, SOCK_STREAM, 0);
     if (fd_Socket == -1) {
         return -1;
@@ -70,28 +70,28 @@ int net_connectTo(std::uint16_t u16_Port) {
 
 /** @brief Sends all of the text, even if the OS accepts it in several pieces. */
 void net_sendAll(int fd_Socket, const std::string& sz_Text) {
-    std::size_t siz_Total = 0;
+    size_t siz_Total = 0;
     while (siz_Total < sz_Text.size()) {
         const ssize_t ssiz_Sent =
             send(fd_Socket, sz_Text.data() + siz_Total, sz_Text.size() - siz_Total, 0);
         if (ssiz_Sent <= 0) {
             return;
         }
-        siz_Total += static_cast<std::size_t>(ssiz_Sent);
+        siz_Total += static_cast<size_t>(ssiz_Sent);
     }
 }
 
 /** @brief Reads until the given number of complete lines arrived (or the 2 s timeout passes). */
 std::string net_readLines(int fd_Socket, int int_LineCount) {
-    std::string  sz_Received;
-    std::int64_t s64_Lines = 0;
+    std::string sz_Received;
+    int64_t     s64_Lines = 0;
     while (s64_Lines < int_LineCount) {
         std::array<char, 4096> arr_Chunk;
         const ssize_t          ssiz_Read = recv(fd_Socket, arr_Chunk.data(), arr_Chunk.size(), 0);
         if (ssiz_Read <= 0) {
             break;
         }
-        const std::size_t siz_Read = static_cast<std::size_t>(ssiz_Read);
+        const size_t siz_Read = static_cast<size_t>(ssiz_Read);
         s64_Lines += std::count(arr_Chunk.data(), arr_Chunk.data() + siz_Read, '\n');
         sz_Received.append(arr_Chunk.data(), siz_Read);
     }
@@ -167,7 +167,7 @@ TEST(TcpServerStart, FailureLeavesServerNotStarted) {
 /* Issue #9: after a failure, start() can be retried once the port is free */
 TEST(TcpServerStart, CanBeRetriedAfterFailure) {
     core::KvStore obj_Store;
-    std::uint16_t u16_Port = 0;
+    uint16_t      u16_Port = 0;
     {
         TcpServer obj_First(0, obj_Store);
         ASSERT_EQ(obj_First.start(), P_OK);

@@ -53,11 +53,11 @@ std::string pwp_toUpper(std::string sz_Text) {
  * @return The trimmed text, or an empty string if the text is only whitespace.
  */
 std::string pwp_trim(const std::string& sz_Text) {
-    const std::size_t siz_FirstIdx = sz_Text.find_first_not_of(PWP_WHITESPACE);
+    const size_t siz_FirstIdx = sz_Text.find_first_not_of(PWP_WHITESPACE);
     if (siz_FirstIdx == std::string::npos) {
         return "";
     }
-    const std::size_t siz_LastIdx = sz_Text.find_last_not_of(PWP_WHITESPACE);
+    const size_t siz_LastIdx = sz_Text.find_last_not_of(PWP_WHITESPACE);
 
     return sz_Text.substr(siz_FirstIdx, siz_LastIdx - siz_FirstIdx + 1);
 }
@@ -71,14 +71,14 @@ std::string pwp_trim(const std::string& sz_Text) {
  * @return The extracted word. If no word is found, returns an empty string.
  */
 std::string pwp_popNextWord(std::string& sz_Text) {
-    const std::size_t siz_StartIdx = sz_Text.find_first_not_of(PWP_WHITESPACE);
+    const size_t siz_StartIdx = sz_Text.find_first_not_of(PWP_WHITESPACE);
     if (siz_StartIdx == std::string::npos) {
         sz_Text.clear();
         return "";
     }
 
     /* Find the space/tab right after the last char of the word. */
-    const std::size_t siz_EndIdx = sz_Text.find_first_of(PWP_WHITESPACE, siz_StartIdx);
+    const size_t siz_EndIdx = sz_Text.find_first_of(PWP_WHITESPACE, siz_StartIdx);
     if (siz_EndIdx == std::string::npos) {
         /*  No more spaces found, take the rest of the string as the word */
         std::string sz_Word = sz_Text.substr(siz_StartIdx);
@@ -126,7 +126,7 @@ ParseResult pwp_makeCommand(CommandType enm_Type, const std::vector<std::string>
 // GLOBAL SCOPE
 // ================================================================================================
 std::optional<std::string> PWP_ExtractLine(std::string& sz_Buffer) {
-    const std::size_t siz_LineLen = sz_Buffer.find('\n');
+    const size_t siz_LineLen = sz_Buffer.find('\n');
     if (siz_LineLen == std::string::npos) {
         return std::nullopt;
     }
@@ -155,7 +155,7 @@ ParseResult PWP_ParseLine(const std::string& sz_Line) {
     while (!sz_Tmp.empty()) {
         vec_Args.push_back(pwp_popNextWord(sz_Tmp));
     }
-    const std::size_t siz_ArgCount = vec_Args.size();
+    const size_t siz_ArgCount = vec_Args.size();
 
     if (sz_Word == "PING") {
         if (siz_ArgCount != 0) {
