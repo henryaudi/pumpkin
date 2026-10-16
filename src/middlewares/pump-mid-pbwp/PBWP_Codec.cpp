@@ -28,7 +28,10 @@
 #include <utility>
 #include <vector>
 
+#include "common/pump-cmn-log/LOG_Logger.hpp"
 #include "common/pump-cmn-stat/STAT_Status.hpp"
+
+LOG_MODULE_REGISTER(PBWP, LOG_LEVEL_DBG)
 
 namespace pumpkin::middlewares {
 
@@ -133,7 +136,8 @@ uint16_t pbwp_getLe16(const uint8_t* ptr_In) {
  * @return The 32-bit value read.
  */
 uint32_t pbwp_getLe32(const uint8_t* ptr_In) {
-    return static_cast<uint32_t>((pbwp_getLe16(ptr_In + 2) << 16) | pbwp_getLe16(ptr_In));
+    return (static_cast<uint32_t>(pbwp_getLe16(ptr_In + 2)) << 16) |
+           (static_cast<uint32_t>(pbwp_getLe16(ptr_In)));
 }
 
 /**
@@ -143,9 +147,92 @@ uint32_t pbwp_getLe32(const uint8_t* ptr_In) {
  * @return The 64-bit value read.
  */
 uint64_t pbwp_getLe64(const uint8_t* ptr_In) {
-    return static_cast<uint64_t>((pbwp_getLe32(ptr_In + 4) << 32) | pbwp_getLe32(ptr_In));
+    return (static_cast<uint64_t>(pbwp_getLe32(ptr_In + 4)) << 32) |
+           (static_cast<uint64_t>(pbwp_getLe32(ptr_In)));
 }
 
+int pbwp_parseHeader(const uint8_t* ptr_In, size_t siz_Length) {
+    if (siz_Length < PBWP_HEADER_SIZE) {
+        return 0;  // Incomplete frame header.
+    }
+    if (ptr_In[PBWP_OFFSET_MAGIC] != PBWP_MAGIC || ptr_In[PBWP_OFFSET_VERSION] != PBWP_VERSION) {
+        LOG_WRN("bad header: magic 0x%02X, version %u (expected 0x%02X, %u)",
+                static_cast<unsigned>(ptr_In[PBWP_OFFSET_MAGIC]),
+                static_cast<unsigned>(ptr_In[PBWP_OFFSET_VERSION]),
+                static_cast<unsigned>(PBWP_MAGIC), static_cast<unsigned>(PBWP_VERSION));
+        return -P_EINVARG;
+    }
+
+    if constexpr (PBWP_VERSION < 2) {  // I swear if this was C project I would have used macros...
+        /* Flags byte is temporary reserved in version 1: must be 0 */
+        LOG_WRN("flags 0x%02X not supported in version %u",
+                static_cast<unsigned>(ptr_In[PBWP_OFFSET_FLAGS]),
+                static_cast<unsigned>(PBWP_VERSION));
+        if (ptr_In[PBWP_OFFSET_FLAGS] != 0) {
+            return -P_EINVARG;
+        }
+    }
+
+    const uint32_t u32_PayloadLength = pbwp_getLe32(ptr_In + PBWP_OFFSET_PAYLOAD_LEN);
+    if (u32_PayloadLength > PBWP_MAX_PAYLOAD_SIZE) {
+        LOG_WRN("payload length %u over the %zu-byte limit", u32_PayloadLength,
+                PBWP_MAX_PAYLOAD_SIZE);
+        return -P_ERANGE;
+    }
+    if (siz_Length < PBWP_HEADER_SIZE + u32_PayloadLength) {
+        return 0;  // Incomplete frame.
+    }
+
+    return static_cast<int>(PBWP_HEADER_SIZE + u32_PayloadLength);
+}
 }  // namespace
 
+// ================================================================================================
+// GLOBAL SCOPE
+// ================================================================================================
+int PBWP_EncodeRequest(const PbwpRequest& str_Request, uint8_t* ptr_Out, size_t siz_Capacity) {
+    if (str_Request.vec_Args.size() > std::numeric_limits<uint16_t>::max()) {
+        LOG_WRN("request %u: %zu arguments, more than the 16-bit count allows",
+                str_Request.u32_RequestId, str_Request.vec_Args.size());
+        return -P_ERANGE;
+    }
+
+    /* Payload: 2-byte argument count, then per argument a 4-byte length and its bytes */
+    size_t siz_PayloadNumBytes = sizeof(uint16_t);  // Argument count field
+    for (const std::string& sz_Arg : str_Request.vec_Args) {
+        siz_PayloadNumBytes += sizeof(uint32_t) + sz_Arg.size();  // len (32-bit) + Arg bytes
+    }
+    if (siz_PayloadNumBytes > PBWP_MAX_PAYLOAD_SIZE) {
+        LOG_WRN("request %u: payload %zu bytes over the %zu-byte limit", str_Request.u32_RequestId,
+                siz_PayloadNumBytes, PBWP_MAX_PAYLOAD_SIZE);
+        return -P_ERANGE;
+    }
+
+    const size_t siz_FrameSize = PBWP_HEADER_SIZE + siz_PayloadNumBytes;
+    const int    int_Ret       = pbwp_checkOutput(siz_FrameSize, ptr_Out, siz_Capacity);
+    if (int_Ret != 0) {
+        if (int_Ret < 0) {
+            LOG_DBG("request %u: cannot encode %zu bytes into %zu: %s", str_Request.u32_RequestId,
+                    siz_FrameSize, siz_Capacity, STAT_ToString(-int_Ret));
+        }
+        return int_Ret;
+    }
+
+    /* Write header */
+    pbwp_writeHeader(ptr_Out, static_cast<uint8_t>(str_Request.enm_Opcode), 0,
+                     str_Request.u32_RequestId, static_cast<uint32_t>(siz_PayloadNumBytes));
+
+    /* Write argument count + payload */
+    size_t siz_Pos = PBWP_HEADER_SIZE;
+    pbwp_putLe16(ptr_Out + siz_Pos, static_cast<uint16_t>(str_Request.vec_Args.size()));
+    siz_Pos += sizeof(uint16_t);
+    for (const std::string& sz_Arg : str_Request.vec_Args) {
+        pbwp_putLe32(ptr_Out + siz_Pos, static_cast<uint32_t>(sz_Arg.size()));
+        siz_Pos += sizeof(uint32_t);
+        std::memcpy(ptr_Out + siz_Pos, sz_Arg.data(), sz_Arg.size());
+        siz_Pos += sz_Arg.size();
+    }
+
+    return static_cast<int>(siz_FrameSize);
+}
 }  // namespace pumpkin::middlewares
