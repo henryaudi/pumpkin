@@ -117,6 +117,36 @@ int pbwp_checkOutput(std::size_t siz_FrameSize, const std::uint8_t* ptr_Out,
 }
 
 // ---- Reading: from received bytes that the caller already checked are there ------------------
+/**
+ * @brief Read a 16-bit little-endian integer from the input buffer.
+ *
+ * @param ptr_In Pointer to the input buffer (must have at least 2 bytes).
+ * @return The 16-bit value read.
+ */
+std::uint16_t pbwp_getLe16(const std::uint8_t* ptr_In) {
+    return static_cast<std::uint16_t>((ptr_In[1] << 8) | ptr_In[0]);
+}
+
+/**
+ * @brief Read a 32-bit little-endian integer from the input buffer.
+ *
+ * @param ptr_In Pointer to the input buffer (must have at least 4 bytes).
+ * @return The 32-bit value read.
+ */
+std::uint32_t pbwp_getLe32(const std::uint8_t* ptr_In) {
+    return static_cast<std::uint32_t>((pbwp_getLe16(ptr_In + 2) << 16) | pbwp_getLe16(ptr_In));
+}
+
+/**
+ * @brief Read a 64-bit little-endian integer from the input buffer.
+ *
+ * @param ptr_In Pointer to the input buffer (must have at least 8 bytes).
+ * @return The 64-bit value read.
+ */
+std::uint64_t pbwp_getLe64(const std::uint8_t* ptr_In) {
+    return static_cast<std::uint64_t>((pbwp_getLe32(ptr_In + 4) << 32) | pbwp_getLe32(ptr_In));
+}
+
 
 
 }  // namespace
