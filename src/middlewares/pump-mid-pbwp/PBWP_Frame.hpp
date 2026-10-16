@@ -66,19 +66,19 @@ namespace pumpkin::middlewares {
 */
 
 /* NOTE: For future design changes, the magic byte must be greater than all opcodes */
-inline constexpr std::uint8_t PBWP_MAGIC            = 0xB1;
-inline constexpr std::uint8_t PBWP_VERSION          = 1;
-inline constexpr std::size_t  PBWP_HEADER_SIZE      = 12;                // 12 Byte
-inline constexpr std::size_t  PBWP_MAX_PAYLOAD_SIZE = 16 * 1024 * 1024;  // 16 MiB
-inline constexpr std::size_t  PBWP_MAX_KEY_SIZE     = 64 * 1024;         // 64 KiB
+inline constexpr uint8_t PBWP_MAGIC            = 0xB1;
+inline constexpr uint8_t PBWP_VERSION          = 1;
+inline constexpr size_t  PBWP_HEADER_SIZE      = 12;                // 12 Byte
+inline constexpr size_t  PBWP_MAX_PAYLOAD_SIZE = 16 * 1024 * 1024;  // 16 MiB
+inline constexpr size_t  PBWP_MAX_KEY_SIZE     = 64 * 1024;         // 64 KiB
 
 /* Header byte 3. Reserved in version 1: frames with any flag set are rejected */
-inline constexpr std::uint8_t PBWP_FLAG_MORE = 0x01;  // More frames of this message follow
+inline constexpr uint8_t PBWP_FLAG_MORE = 0x01;  // More frames of this message follow
 
 /**
  * @brief Request opcodes (header byte 2). Values are fixed: never renumber, only add.
  */
-enum class PbwpOpcode : std::uint8_t {
+enum class PbwpOpcode : uint8_t {
     OP_INVALID = 0x00,
     OP_PING    = 0x01,
     OP_GET     = 0x02,
@@ -89,7 +89,7 @@ enum class PbwpOpcode : std::uint8_t {
 /**
  * @brief Reply types (header byte 2 of a reply). Values are fixed: never renumber, only add.
  */
-enum class PbwpReplyType : std::uint8_t {
+enum class PbwpReplyType : uint8_t {
     RPL_OK      = 0x00,  // no payload
     RPL_VALUE   = 0x01,  // payload: the value bytes
     RPL_NIL     = 0x02,  // no payload
@@ -102,16 +102,16 @@ enum class PbwpReplyType : std::uint8_t {
  */
 struct PbwpRequest {
     PbwpOpcode               enm_Opcode    = PbwpOpcode::OP_INVALID;
-    std::uint32_t            u32_RequestId = 0;
+    uint32_t                 u32_RequestId = 0;
     std::vector<std::string> vec_Args;
 };
 
 struct PbwpReply {
     PbwpReplyType enm_Type      = PbwpReplyType::RPL_OK;
-    std::uint8_t  u8_Status     = 0;  // P_E* code for RPL_ERROR, P_OK otherwise
-    std::uint32_t u32_RequestId = 0;
+    uint8_t       u8_Status     = 0;  // P_E* code for RPL_ERROR, P_OK otherwise
+    uint32_t      u32_RequestId = 0;
     std::string   sz_Payload;
-    std::int64_t  s64_Integer = 0;
+    int64_t       s64_Integer = 0;
 };
 
 }  // namespace pumpkin::middlewares

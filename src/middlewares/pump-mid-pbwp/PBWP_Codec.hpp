@@ -44,8 +44,7 @@ namespace pumpkin::middlewares {
  *         too small or the frame exceeds the protocol limits; -P_EINVARG if ptr_Out is NULL with a
  *         non-zero capacity. Nothing is written on failure.
  */
-int PBWP_EncodeRequest(const PbwpRequest& str_Request, std::uint8_t* ptr_Out,
-                       std::size_t siz_Capacity);
+int PBWP_EncodeRequest(const PbwpRequest& str_Request, uint8_t* ptr_Out, size_t siz_Capacity);
 
 /**
  * @brief Decodes the first request frame in a byte buffer. The buffer is not modified.
@@ -59,8 +58,7 @@ int PBWP_EncodeRequest(const PbwpRequest& str_Request, std::uint8_t* ptr_Out,
  *         the stream can't be trusted any more, so the caller closes the connection.
  *         -P_EINVARG also for a NULL ptr_Request, or a NULL ptr_In with a non-zero length.
  */
-int PBWP_DecodeRequest(const std::uint8_t* ptr_In, std::size_t siz_Length,
-                       PbwpRequest* ptr_Request);
+int PBWP_DecodeRequest(const uint8_t* ptr_In, size_t siz_Length, PbwpRequest* ptr_Request);
 
 /**
  * @brief Checks a decoded request's opcode and arguments, and turns it into a Command.
@@ -89,7 +87,7 @@ int PBWP_PbwpToCommand(PbwpRequest* ptr_Request, Command* ptr_Command, std::stri
  * @return Bytes written (> 0), or the required size for a size query; -P_ERANGE, -P_EINVARG as
  *         for PBWP_EncodeRequest(), and -P_EINVARG for an unknown reply type.
  */
-int PBWP_EncodeReply(const PbwpReply& str_Reply, std::uint8_t* ptr_Out, std::size_t siz_Capacity);
+int PBWP_EncodeReply(const PbwpReply& str_Reply, uint8_t* ptr_Out, size_t siz_Capacity);
 
 /**
  * @brief Decodes the first reply frame in a byte buffer. Same return convention as
@@ -101,7 +99,7 @@ int PBWP_EncodeReply(const PbwpReply& str_Reply, std::uint8_t* ptr_Out, std::siz
  *
  * @return Frame size (> 0), 0 if more bytes are needed, or a negative P_E* code.
  */
-int PBWP_DecodeReply(const std::uint8_t* ptr_In, std::size_t siz_Length, PbwpReply* ptr_Reply);
+int PBWP_DecodeReply(const uint8_t* ptr_In, size_t siz_Length, PbwpReply* ptr_Reply);
 
 }  // namespace pumpkin::middlewares
 
