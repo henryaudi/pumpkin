@@ -37,7 +37,7 @@ public:
      * @param u16_Port  TCP port to listen on. 0 lets the OS choose a free port (see port()).
      * @param obj_Store The store that commands run against. Must outlive the server instance.
      */
-    TcpServer(std::uint16_t u16_Port, core::KvStore& obj_Store);
+    TcpServer(uint16_t u16_Port, core::KvStore& obj_Store);
 
     /**
      * @brief Closes the listening socket and all client connections.
@@ -74,7 +74,7 @@ public:
      *
      * @return The TCP port the server is listening on.
      */
-    std::uint16_t port() const;
+    uint16_t port() const;
 
 private:
     struct Connection {
@@ -91,7 +91,7 @@ private:
     void processPendingLines(Connection& str_Connection);
     void closeConnection(int fd_Client);
 
-    std::uint16_t             m_u16_port;
+    uint16_t                  m_u16_port;
     core::KvStore&            m_obj_store;
     int                       m_fd_listen = -1;   // listening socket file descriptor (fd)
     std::map<int, Connection> m_map_connections;  // open connections by socket fd

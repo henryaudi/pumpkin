@@ -38,7 +38,7 @@ bool KvStore::remove(const std::string& sz_Key) {
     return m_umap_data.erase(sz_Key) > 0;
 }
 
-std::size_t KvStore::size() const {
+size_t KvStore::size() const {
     return m_umap_data.size();
 }
 

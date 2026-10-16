@@ -35,7 +35,7 @@ namespace {
 // ================================================================================================
 
 /* Longest part of a value shown in the log; longer values end with "..." */
-constexpr std::size_t CDE_LOG_VALUE_PREVIEW = 32;
+constexpr size_t CDE_LOG_VALUE_PREVIEW = 32;
 
 }  // namespace
 
@@ -50,14 +50,14 @@ Reply CDE_ExecuteCommand(const Command& str_Command, core::KvStore& obj_Store) {
             LOG_INF("PING");
             return Reply{ReplyType::REPLY_PONG, "", 0};
         case CommandType::CMD_SET: {
-            for (std::size_t siz_Idx = 0; siz_Idx < str_Command.vec_Args.size(); siz_Idx += 2) {
+            for (size_t siz_Idx = 0; siz_Idx < str_Command.vec_Args.size(); siz_Idx += 2) {
                 const std::string& sz_Key = str_Command.vec_Args[siz_Idx];
                 const std::string& sz_Val = str_Command.vec_Args[siz_Idx + 1];
                 obj_Store.set(sz_Key, sz_Val);
 
                 LOG_INF("SET '%s' (%zu bytes)", sz_Key.c_str(), sz_Val.size());
 
-                const std::size_t siz_Shown = std::min(sz_Val.size(), CDE_LOG_VALUE_PREVIEW);
+                const size_t siz_Shown = std::min(sz_Val.size(), CDE_LOG_VALUE_PREVIEW);
                 LOG_DBG("SET '%s' = '%.*s'%s", sz_Key.c_str(), static_cast<int>(siz_Shown),
                         sz_Val.c_str(), (sz_Val.size() > siz_Shown) ? "..." : "");
             }
@@ -73,7 +73,7 @@ Reply CDE_ExecuteCommand(const Command& str_Command, core::KvStore& obj_Store) {
             const std::string& sz_Value = opt_Value.value();
             LOG_INF("GET '%s': found (%zu bytes)", sz_Key.c_str(), sz_Value.size());
 
-            const std::size_t siz_Shown = std::min(sz_Value.size(), CDE_LOG_VALUE_PREVIEW);
+            const size_t siz_Shown = std::min(sz_Value.size(), CDE_LOG_VALUE_PREVIEW);
             LOG_DBG("GET '%s' = '%.*s'%s", sz_Key.c_str(), static_cast<int>(siz_Shown),
                     sz_Value.c_str(), (sz_Value.size() > siz_Shown) ? "..." : "");
             return Reply{ReplyType::REPLY_VALUE, sz_Value, 0};

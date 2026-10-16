@@ -33,7 +33,7 @@ LOG_MODULE_REGISTER(SRV, LOG_LEVEL_INF)
 
 namespace {
 
-constexpr std::uint16_t SRV_DEFAULT_PORT = 7379;  // Default port for the pumpkin-server
+constexpr uint16_t SRV_DEFAULT_PORT = 7379;  // Default port for the pumpkin-server
 std::atomic<pumpkin::services::TcpServer*> srv_atm_server{nullptr};
 
 /**
@@ -60,7 +60,7 @@ void srv_handleStopSignal([[maybe_unused]] int int_Signal) {
  * @return P_OK on success; -P_EINVARG if the text is not only digits; -P_ERANGE if it is above
  *         65535.
  */
-int srv_parsePort(const std::string& sz_Text, std::uint16_t& u16_Port) {
+int srv_parsePort(const std::string& sz_Text, uint16_t& u16_Port) {
     if (sz_Text.empty()) {
         return -P_EINVARG;  // Invalid argument
     }
@@ -81,7 +81,7 @@ int srv_parsePort(const std::string& sz_Text, std::uint16_t& u16_Port) {
         return -P_ERANGE;
     }
 
-    u16_Port = static_cast<std::uint16_t>(int_Port);
+    u16_Port = static_cast<uint16_t>(int_Port);
     return P_OK;
 }
 
@@ -90,7 +90,7 @@ int srv_parsePort(const std::string& sz_Text, std::uint16_t& u16_Port) {
 int main(int argc, char* argv[]) {
     LOG_Init("info");
 
-    std::uint16_t u16_Port = SRV_DEFAULT_PORT;
+    uint16_t u16_Port = SRV_DEFAULT_PORT;
     if (argc > 1) {
         const int int_Result = srv_parsePort(argv[1], u16_Port);
         if (int_Result < 0) {

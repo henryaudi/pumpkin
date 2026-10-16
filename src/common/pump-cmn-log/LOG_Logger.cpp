@@ -43,8 +43,8 @@ namespace {
 // PRIVATE SCOPE
 // ================================================================================================
 
-constexpr std::size_t LOG_MAX_LINE_LENGTH = 1024;  // Maximum length of a log line
-constexpr char        LOG_LOGGER_NAME[]   = "pumpkin";
+constexpr size_t LOG_MAX_LINE_LENGTH = 1024;  // Maximum length of a log line
+constexpr char   LOG_LOGGER_NAME[]   = "pumpkin";
 
 /* Runtime level set by LOG_Init() */
 std::atomic<int> log_atm_runtimeLevel{LOG_LEVEL_INF};
@@ -78,14 +78,14 @@ void log_createPumpkinLogger(int int_Level) {
  *
  * @return The thread id.
  */
-std::uint64_t log_getOsThreadId() {
+uint64_t log_getOsThreadId() {
 #if defined(__APPLE__)
-    std::uint64_t u64_ThreadId = 0;
+    uint64_t u64_ThreadId = 0;
     pthread_threadid_np(nullptr, &u64_ThreadId);
     return u64_ThreadId;
 #else
     /* Linux */
-    return static_cast<std::uint64_t>(syscall(SYS_gettid));
+    return static_cast<uint64_t>(syscall(SYS_gettid));
 #endif
 }
 
@@ -174,7 +174,7 @@ void LOG_Write(const char* sz_Module, int int_Level, const char* sz_Format, ...)
         return;
     }
 
-    thread_local const std::uint64_t      u64_ThreadId = log_getOsThreadId();
+    thread_local const uint64_t           u64_ThreadId = log_getOsThreadId();
     std::array<char, LOG_MAX_LINE_LENGTH> arr_Line;
 
     /* Prefix: [LEVEL] padded to 8 ("CRITICAL" being the longest so far), [MODULE] padded to 4,
@@ -183,10 +183,10 @@ void LOG_Write(const char* sz_Module, int int_Level, const char* sz_Format, ...)
     const int int_PrefixLen = std::snprintf(
         arr_Line.data(), arr_Line.size(), "[%-8s] [%-4s] [%llu] ", log_getLogLevelName(int_Level),
         sz_Module, static_cast<unsigned long long>(u64_ThreadId));
-    if (int_PrefixLen < 0 || static_cast<std::size_t>(int_PrefixLen) >= arr_Line.size()) {
+    if (int_PrefixLen < 0 || static_cast<size_t>(int_PrefixLen) >= arr_Line.size()) {
         return;
     }
-    const std::size_t siz_PrefixLen = static_cast<std::size_t>(int_PrefixLen);
+    const size_t siz_PrefixLen = static_cast<size_t>(int_PrefixLen);
 
     /* Format the log message with the remaining in va_Args */
     va_list va_Args;
