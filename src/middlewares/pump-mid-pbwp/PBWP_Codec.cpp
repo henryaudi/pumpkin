@@ -305,10 +305,99 @@ int PBWP_DecodeRequest(const uint8_t* ptr_In, size_t siz_Length, PbwpRequest* pt
 
     LOG_TRC("request %u: opcode %u, %u arguments, %d bytes", u32_RequestId,
             static_cast<unsigned>(u8_Opcode), static_cast<unsigned>(u16_ArgCount), int_FrameSize);
-    ptr_Request->enm_Opcode = static_cast<PbwpOpcode>(u8_Opcode);
+    ptr_Request->enm_Opcode    = static_cast<PbwpOpcode>(u8_Opcode);
     ptr_Request->u32_RequestId = u32_RequestId;
-    ptr_Request->vec_Args = std::move(vec_Args);
+    ptr_Request->vec_Args      = std::move(vec_Args);
 
     return int_FrameSize;
 }
+
+int PBWP_PbwpToCommand(PbwpRequest* ptr_Request, Command* ptr_Command, std::string* ptr_Error) {
+    if (ptr_Request == nullptr || ptr_Command == nullptr || ptr_Error == nullptr) {
+        LOG_ERR("PbwpToCommand called with a null pointer");
+        return -P_EINVARG;
+    }
+
+    const size_t siz_ArgCount = ptr_Request->vec_Args.size();
+    CommandType  enm_Type     = CommandType::CMD_PING;
+    int          int_Result   = P_OK;
+
+    switch (ptr_Request->enm_Opcode) {
+        case PbwpOpcode::OP_PING:
+            if (siz_ArgCount != 0) {
+                *ptr_Error = "PING takes no arguments";
+                int_Result = -P_EINVARG;
+            }
+            enm_Type = CommandType::CMD_PING;
+            break;
+        case PbwpOpcode::OP_GET:
+        case PbwpOpcode::OP_DEL:
+            if (siz_ArgCount != 1) {
+                *ptr_Error = "GET and DEL take exactly one key";
+                int_Result = -P_EINVARG;
+            }
+            enm_Type = (ptr_Request->enm_Opcode == PbwpOpcode::OP_GET) ? CommandType::CMD_GET
+                                                                       : CommandType::CMD_DEL;
+            break;
+        case PbwpOpcode::OP_SET:
+            if (siz_ArgCount == 0 || siz_ArgCount % 2 != 0) {
+                *ptr_Error = "SET takes key-value pairs";
+                int_Result = -P_EINVARG;
+            }
+            enm_Type = CommandType::CMD_SET;
+            break;
+        default:
+            *ptr_Error = "unknown opcode";
+            int_Result = -P_EINVARG;
+            break;
+    }
+
+    if (int_Result == P_OK) {
+        const size_t siz_NumArgPerPair = (enm_Type == CommandType::CMD_SET) ? 2 : 1;
+        for (size_t i = 0; i < siz_ArgCount; i += siz_NumArgPerPair) {
+            if (ptr_Request->vec_Args[i].size() > PBWP_MAX_KEY_SIZE) {
+                *ptr_Error = "key too long";
+                int_Result = -P_ERANGE;
+                break;
+            }
+        }
+    }
+
+    if (int_Result < 0) {
+        LOG_DBG("rejected request %u (opcode %u, %zu arguments): %s", ptr_Request->u32_RequestId,
+                static_cast<unsigned>(ptr_Request->enm_Opcode), siz_ArgCount, ptr_Error->c_str());
+        return int_Result;
+    }
+
+    ptr_Command->enm_Type = enm_Type;
+    ptr_Command->vec_Args = std::move(ptr_Request->vec_Args);
+
+    return P_OK;
+}
+
+int PBWP_EncodeReply(const PbwpReply& str_Reply, uint8_t* ptr_Out, size_t siz_Capacity) {
+    size_t siz_PayloadLength = 0;
+    switch (str_Reply.enm_Type) {
+        case PbwpReplyType::RPL_OK:
+        case PbwpReplyType::RPL_NIL:
+            siz_PayloadLength = 0;
+            break;
+        case PbwpReplyType::RPL_VALUE:
+            siz_PayloadLength = str_Reply.sz_Payload.size();
+            break;
+        case PbwpReplyType::RPL_ERROR:
+            siz_PayloadLength = sizeof(uint8_t) + str_Reply.sz_Payload.size();
+            break;
+        case PbwpReplyType::RPL_INTEGER:
+            siz_PayloadLength = sizeof(int64_t);
+            break;
+        default:
+            LOG_ERR("reply %u: unknown reply type %u", str_Reply.u32_RequestId,
+                    static_cast<unsigned>(str_Reply.enm_Type));
+            return -P_EINVARG;
+    }
+
+    
+}
+
 }  // namespace pumpkin::middlewares
