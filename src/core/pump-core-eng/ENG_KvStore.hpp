@@ -76,7 +76,7 @@ public:
      *
      * @return The number of key-value pairs.
      */
-    std::size_t size() const;
+    size_t size() const;
 
 private:
     std::unordered_map<std::string, std::string> m_umap_data;  ///< key -> value
