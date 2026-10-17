@@ -177,11 +177,11 @@ int pbwp_parseHeader(const uint8_t* ptr_In, size_t siz_Length) {
     }
 
     if constexpr (PBWP_VERSION < 2) {  // I swear if this was C project I would have used macros...
-        /* Flags byte is temporary reserved in version 1: must be 0 */
-        LOG_WRN("flags 0x%02X not supported in version %u",
-                static_cast<unsigned>(ptr_In[PBWP_OFFSET_FLAGS]),
-                static_cast<unsigned>(PBWP_VERSION));
         if (ptr_In[PBWP_OFFSET_FLAGS] != 0) {
+            /* Flags byte is temporary reserved in version 1: must be 0 */
+            LOG_WRN("flags 0x%02X not supported in version %u",
+                    static_cast<unsigned>(ptr_In[PBWP_OFFSET_FLAGS]),
+                    static_cast<unsigned>(PBWP_VERSION));
             return -P_EINVARG;
         }
     }
@@ -276,6 +276,12 @@ int PBWP_DecodeRequest(const uint8_t* ptr_In, size_t siz_Length, PbwpRequest* pt
     size_t         siz_Pos      = PBWP_HEADER_SIZE;
     const uint16_t u16_ArgCount = pbwp_getLe16(ptr_In + siz_Pos);
     siz_Pos += sizeof(uint16_t);
+
+    if (u16_ArgCount > (siz_End - siz_Pos) / sizeof(uint32_t)) {
+        LOG_WRN("request %u: %u arguments can't fit in %zu payload bytes", u32_RequestId,
+                static_cast<unsigned>(u16_ArgCount), siz_End - siz_Pos);
+        return -P_EINVARG;
+    }
 
     std::vector<std::string> vec_Args;
     vec_Args.reserve(u16_ArgCount);
@@ -410,7 +416,7 @@ int PBWP_EncodeReply(const PbwpReply& str_Reply, uint8_t* ptr_Out, size_t siz_Ca
             LOG_DBG("reply %u: cannot encode %zu bytes into %zu: %s", str_Reply.u32_RequestId,
                     siz_FrameSize, siz_Capacity, STAT_ToString(-int_Tmp));
         }
-        return -int_Tmp;
+        return int_Tmp;
     }
 
     pbwp_writeHeader(ptr_Out, static_cast<uint8_t>(str_Reply.enm_Type), 0, str_Reply.u32_RequestId,
