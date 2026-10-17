@@ -277,7 +277,7 @@ int PBWP_DecodeRequest(const uint8_t* ptr_In, size_t siz_Length, PbwpRequest* pt
     const uint16_t u16_ArgCount = pbwp_getLe16(ptr_In + siz_Pos);
     siz_Pos += sizeof(uint16_t);
 
-    if (u16_ArgCount > (siz_End - siz_Pos) / sizeof(uint32_t)) {
+    if (u16_ArgCount > ((siz_End - siz_Pos) / sizeof(uint32_t))) {
         LOG_WRN("request %u: %u arguments can't fit in %zu payload bytes", u32_RequestId,
                 static_cast<unsigned>(u16_ArgCount), siz_End - siz_Pos);
         return -P_EINVARG;

@@ -9,5 +9,5 @@ target_link_libraries(pump-mid-pbwp
         pump::mid-pwp
         pump::cmn-stat
     PRIVATE
-        pumpkin::cmn-log
+        pump::cmn-log
         pumpkin::warnings)
