@@ -376,6 +376,7 @@ int PBWP_PbwpToCommand(PbwpRequest* ptr_Request, Command* ptr_Command, std::stri
 }
 
 int PBWP_EncodeReply(const PbwpReply& str_Reply, uint8_t* ptr_Out, size_t siz_Capacity) {
+    /* Determine the length of the payload based on the reply type */
     size_t siz_PayloadLength = 0;
     switch (str_Reply.enm_Type) {
         case PbwpReplyType::RPL_OK:
@@ -396,8 +397,113 @@ int PBWP_EncodeReply(const PbwpReply& str_Reply, uint8_t* ptr_Out, size_t siz_Ca
                     static_cast<unsigned>(str_Reply.enm_Type));
             return -P_EINVARG;
     }
+    if (siz_PayloadLength > PBWP_MAX_PAYLOAD_SIZE) {
+        LOG_WRN("reply %u: payload %zu bytes over the %zu-byte limit", str_Reply.u32_RequestId,
+                siz_PayloadLength, PBWP_MAX_PAYLOAD_SIZE);
+        return -P_ERANGE;
+    }
 
-    
+    const size_t siz_FrameSize = PBWP_HEADER_SIZE + siz_PayloadLength;
+    const int    int_Tmp       = pbwp_checkOutput(siz_FrameSize, ptr_Out, siz_Capacity);
+    if (int_Tmp != 0) {
+        if (int_Tmp < 0) {
+            LOG_DBG("reply %u: cannot encode %zu bytes into %zu: %s", str_Reply.u32_RequestId,
+                    siz_FrameSize, siz_Capacity, STAT_ToString(-int_Tmp));
+        }
+        return -int_Tmp;
+    }
+
+    pbwp_writeHeader(ptr_Out, static_cast<uint8_t>(str_Reply.enm_Type), 0, str_Reply.u32_RequestId,
+                     static_cast<uint32_t>(siz_PayloadLength));
+
+    /* Copy payload data into the payload section of the frame */
+    uint8_t* ptr_Payload = ptr_Out + PBWP_HEADER_SIZE;
+    switch (str_Reply.enm_Type) {
+        case PbwpReplyType::RPL_VALUE:
+            std::memcpy(ptr_Payload, str_Reply.sz_Payload.data(), str_Reply.sz_Payload.size());
+            break;
+        case PbwpReplyType::RPL_ERROR:
+            ptr_Payload[0] = str_Reply.u8_Status;
+            std::memcpy(ptr_Payload + sizeof(uint8_t), str_Reply.sz_Payload.data(),
+                        str_Reply.sz_Payload.size());
+            break;
+        case PbwpReplyType::RPL_INTEGER:
+            pbwp_putLe64(ptr_Payload, static_cast<uint64_t>(str_Reply.s64_Integer));
+            break;
+        default:
+            break;  // RPL_OK, RPL_NIL have no payload
+    }
+
+    return static_cast<int>(siz_FrameSize);
+}
+
+int PBWP_DecodeReply(const uint8_t* ptr_In, size_t siz_Length, PbwpReply* ptr_Reply) {
+    if (ptr_Reply == nullptr || (ptr_In == nullptr && siz_Length > 0)) {
+        LOG_ERR("DecodeReply called with a NULL pointer");
+        return -P_EINVARG;
+    }
+
+    const int int_FrameSize = pbwp_parseHeader(ptr_In, siz_Length);
+    if (int_FrameSize <= 0) {
+        return int_FrameSize;
+    }
+
+    const uint8_t*      ptr_Payload       = ptr_In + PBWP_HEADER_SIZE;
+    const PbwpReplyType enm_Type          = static_cast<PbwpReplyType>(ptr_In[PBWP_OFFSET_TYPE]);
+    const uint32_t      u32_RequestId     = pbwp_getLe32(ptr_In + PBWP_OFFSET_REQ_ID);
+    const uint32_t      u32_PayloadLength = pbwp_getLe32(ptr_In + PBWP_OFFSET_PAYLOAD_LEN);
+    uint8_t             u8_Status         = P_OK;
+
+    switch (enm_Type) {
+        case PbwpReplyType::RPL_OK:
+        case PbwpReplyType::RPL_NIL:
+            if (u32_PayloadLength != 0) {
+                LOG_WRN("reply %u: type %u must be empty, has %u bytes", u32_RequestId,
+                        static_cast<unsigned>(enm_Type), u32_PayloadLength);
+                return -P_EINVARG;
+            }
+            ptr_Reply->sz_Payload.clear();
+            ptr_Reply->s64_Integer = 0;
+            break;
+        case PbwpReplyType::RPL_VALUE:
+            ptr_Reply->sz_Payload.assign(reinterpret_cast<const char*>(ptr_Payload),
+                                         u32_PayloadLength);
+            ptr_Reply->s64_Integer = 0;
+            break;
+        case PbwpReplyType::RPL_ERROR:
+            if (u32_PayloadLength < sizeof(uint8_t)) {
+                LOG_WRN("reply %u: error reply has no status byte", u32_RequestId);
+                return -P_EINVARG;
+            }
+            u8_Status = ptr_Payload[0];
+            ptr_Reply->sz_Payload.assign(
+                reinterpret_cast<const char*>(ptr_Payload + sizeof(uint8_t)),
+                u32_PayloadLength - sizeof(uint8_t));
+            ptr_Reply->s64_Integer = 0;
+            break;
+        case PbwpReplyType::RPL_INTEGER:
+            if (u32_PayloadLength != sizeof(uint64_t)) {
+                LOG_WRN("reply %u: integer reply has %u bytes, expected %zu", u32_RequestId,
+                        u32_PayloadLength, sizeof(uint64_t));
+                return -P_EINVARG;
+            }
+            ptr_Reply->sz_Payload.clear();
+            ptr_Reply->s64_Integer = static_cast<int64_t>(pbwp_getLe64(ptr_Payload));
+            break;
+        default:
+            LOG_WRN("reply %u: unknown reply type %u", u32_RequestId,
+                    static_cast<unsigned>(enm_Type));
+            return -P_EINVARG;
+    }
+
+    LOG_TRC("reply %u: type %u, status %u, %d bytes", u32_RequestId,
+            static_cast<unsigned>(enm_Type), static_cast<unsigned>(u8_Status), int_FrameSize);
+
+    ptr_Reply->enm_Type      = enm_Type;
+    ptr_Reply->u8_Status     = u8_Status;
+    ptr_Reply->u32_RequestId = u32_RequestId;
+
+    return int_FrameSize;
 }
 
 }  // namespace pumpkin::middlewares
