@@ -38,6 +38,15 @@ target_link_libraries(pump-mid-pwp-tests PRIVATE
     GTest::gtest_main)
 gtest_discover_tests(pump-mid-pwp-tests)
 
+# ---- pump-mid-pbwp ----
+add_executable(pump-mid-pbwp-tests
+    middlewares/pump-mid-pbwp/PBWP_CodecTest.cpp)
+target_link_libraries(pump-mid-pbwp-tests PRIVATE
+    pump::mid-pbwp
+    pumpkin::warnings
+    GTest::gtest_main)
+gtest_discover_tests(pump-mid-pbwp-tests)
+
 # ---- pump-mid-cde ----
 add_executable(pump-mid-cde-tests
     middlewares/pump-mid-cde/CDE_DispatcherTest.cpp)
