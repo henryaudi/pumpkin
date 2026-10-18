@@ -26,6 +26,7 @@
 #include <string>
 
 #include "core/pump-core-eng/ENG_KvStore.hpp"
+#include "services/pump-srv-net/NET_TcpSocket.hpp"
 
 namespace pumpkin::services {
 
@@ -40,9 +41,10 @@ public:
     TcpServer(uint16_t u16_Port, core::KvStore& obj_Store);
 
     /**
-     * @brief Closes the listening socket and all client connections.
+     * @brief Closes the listening socket and all client connections (the new OOP style enables
+     *        delegating resource destruction by objects themselves).
      */
-    ~TcpServer();
+    ~TcpServer() = default;
 
     TcpServer(const TcpServer&)            = delete;
     TcpServer& operator=(const TcpServer&) = delete;
@@ -52,7 +54,8 @@ public:
      *        safely retried.
      *
      * @return P_OK on success; -P_EALREADY if already started; -P_EADDRINUSE / -P_EACCES if bind()
-     *         failed; -P_EINVARG for a bad IP address; -P_EIO for any other socket error.
+     *         failed; -P_EINVARG for a bad IP address; another negative P_E* code if a different
+     *         socket call failed.
      */
     int start();
 
@@ -78,6 +81,7 @@ public:
 
 private:
     struct Connection {
+        TcpSocket   obj_Socket;
         std::string sz_ReadBuffer;
         std::string sz_WriteBuffer;
         bool        bol_PeerClosed      = false;
@@ -93,8 +97,8 @@ private:
 
     uint16_t                  m_u16_port;
     core::KvStore&            m_obj_store;
-    int                       m_fd_listen = -1;   // listening socket file descriptor (fd)
-    std::map<int, Connection> m_map_connections;  // open connections by socket fd
+    TcpSocket                 m_obj_listen;       // Hello server...
+    std::map<int, Connection> m_map_connections;  // maps client socket fd to Connection object
     std::atomic<bool>         m_atm_stopRequested{false};
 };
 

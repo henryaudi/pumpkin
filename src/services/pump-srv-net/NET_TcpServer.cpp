@@ -86,18 +86,6 @@ bool net_isTryAgain() {
 TcpServer::TcpServer(uint16_t u16_Port, core::KvStore& obj_Store)
     : m_u16_port(u16_Port), m_obj_store(obj_Store) {}
 
-TcpServer::~TcpServer() {
-    /* Close connections by their fd code */
-    for (const auto& pair_Entry : m_map_connections) {
-        close(pair_Entry.first);
-    }
-
-    /* Close the listening socket if it was opened */
-    if (m_fd_listen != -1) {
-        close(m_fd_listen);
-    }
-}
-
 int TcpServer::start() {
     if (m_fd_listen != -1) {
         LOG_WRN("start() called on a server that is already started");
