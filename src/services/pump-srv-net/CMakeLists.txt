@@ -1,5 +1,6 @@
 # ---- pump-srv-net: single-threaded TCP server (poll) ----
 add_library(pump-srv-net STATIC
+    NET_TcpSocket.cpp
     NET_TcpServer.cpp)
 add_library(pump::srv-net ALIAS pump-srv-net)
 

@@ -58,6 +58,7 @@ gtest_discover_tests(pump-mid-cde-tests)
 
 # ---- pump-srv-net (real TCP on 127.0.0.1) ----
 add_executable(pump-srv-net-tests
+    services/pump-srv-net/NET_TcpSocketTest.cpp
     services/pump-srv-net/NET_TcpServerTest.cpp)
 target_link_libraries(pump-srv-net-tests PRIVATE
     pump::srv-net
