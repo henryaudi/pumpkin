@@ -20,17 +20,13 @@
 
 #include "services/pump-srv-net/NET_TcpServer.hpp"
 
-#include <arpa/inet.h>
-#include <fcntl.h>
-#include <netinet/in.h>
 #include <poll.h>
-#include <sys/socket.h>
-#include <unistd.h>
 
 #include <array>
 #include <cerrno>
 #include <csignal>
 #include <optional>
+#include <utility>
 #include <vector>
 
 #include "common/pump-cmn-log/LOG_Logger.hpp"
@@ -51,33 +47,6 @@ constexpr int    NET_POLL_TIMEOUT_MS  = 100;
 constexpr size_t NET_READ_CHUNK_SIZE  = 4096;
 constexpr size_t NET_MAX_WRITE_BUFFER = 1024 * 1024;
 constexpr char   NET_DEFAULT_IP[]     = "127.0.0.1";
-
-/**
- * @brief Makes recv/send/accept on the socket return immediately instead of waiting.
- *
- * @param fd_Socket The socket to change.
- *
- * @return P_OK on success; -P_EIO if fcntl() failed.
- */
-int net_setSocketNonBlocking(int fd_Socket) {
-    /* Get the current socket status flags*/
-    const int int_Flags = fcntl(fd_Socket, F_GETFL, 0);
-    if (int_Flags < 0) {
-        return -P_EIO;
-    }
-
-    /* Set the socket to non-blocking and return */
-    return fcntl(fd_Socket, F_SETFL, int_Flags | O_NONBLOCK) < 0 ? -P_EIO : P_OK;
-}
-
-/**
- * @brief Checks whether errno means "nothing to do right now, try again later".
- *
- * @return true for EAGAIN / EWOULDBLOCK / EINTR, false for a real error.
- */
-bool net_isTryAgain() {
-    return errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR;
-}
 }  // namespace
 
 // ================================================================================================
@@ -87,7 +56,7 @@ TcpServer::TcpServer(uint16_t u16_Port, core::KvStore& obj_Store)
     : m_u16_port(u16_Port), m_obj_store(obj_Store) {}
 
 int TcpServer::start() {
-    if (m_fd_listen != -1) {
+    if (m_obj_listen.isOpen()) {
         LOG_WRN("start() called on a server that is already started");
         return -P_EALREADY;
     }
@@ -97,9 +66,8 @@ int TcpServer::start() {
     std::signal(SIGPIPE, SIG_IGN);
 
     const int int_Result = openListenSocket();
-    if (int_Result < 0 && m_fd_listen != -1) {
-        close(m_fd_listen);
-        m_fd_listen = -1;
+    if (int_Result < 0) {
+        m_obj_listen.close();
     }
 
     return int_Result;
@@ -107,14 +75,14 @@ int TcpServer::start() {
 
 int TcpServer::run() {
     /* Not started bro... */
-    if (m_fd_listen < 0) {
+    if (!m_obj_listen.isOpen()) {
         return -P_ENOTINIT;
     }
 
     while (!m_atm_stopRequested) {
         /* Build the list of sockets to watch */
         std::vector<pollfd> vec_PollFds;
-        vec_PollFds.push_back(pollfd{m_fd_listen, POLLIN, 0});
+        vec_PollFds.push_back(pollfd{m_obj_listen.fd(), POLLIN, 0});
         for (const auto& pair_Entry : m_map_connections) {
             const Connection& str_Connection = pair_Entry.second;
             int               int_Events     = 0;
@@ -151,7 +119,7 @@ int TcpServer::run() {
             if (str_PollFd.revents == 0) {
                 continue;
             }
-            if (str_PollFd.fd == m_fd_listen) {
+            if (str_PollFd.fd == m_obj_listen.fd()) {
                 acceptConnections();
                 continue;
             }
@@ -211,55 +179,51 @@ uint16_t TcpServer::port() const {
 // ================================================================================================
 int TcpServer::openListenSocket() {
     /* Create the listening socket (IPv4, TCP) */
-    m_fd_listen = socket(AF_INET, SOCK_STREAM, 0);
-    if (m_fd_listen < 0) {
-        LOG_ERR("socket() failed: %s (errno %d)", STAT_ToString(STAT_MapErrno(errno)), errno);
-        return -P_EIO;
+    int int_Ret = m_obj_listen.open();
+    if (int_Ret < 0) {
+        LOG_ERR("socket() failed: %s (errno %d)", STAT_ToString(-int_Ret), errno);
+        return int_Ret;
     }
 
     /* Allow restarting the server right away on the same port */
-    const int int_Enable = 1;
-    if (setsockopt(m_fd_listen, SOL_SOCKET, SO_REUSEADDR, &int_Enable, sizeof(int_Enable)) < 0) {
-        LOG_ERR("setsockopt() failed: %s (errno %d)", STAT_ToString(STAT_MapErrno(errno)), errno);
-        return -P_EIO;
+    int_Ret = m_obj_listen.setReuseAddress();
+    if (int_Ret < 0) {
+        LOG_ERR("setsockopt() failed: %s (errno %d)", STAT_ToString(-int_Ret), errno);
+        return int_Ret;
     }
 
     /* Bind the listening socket to the specified IP address and port */
-    sockaddr_in str_Address{};
-    str_Address.sin_family = AF_INET;  // IPv4
-    str_Address.sin_port   = htons(m_u16_port);
-    if (inet_pton(AF_INET, NET_DEFAULT_IP, &str_Address.sin_addr) != 1) {
+    int_Ret = m_obj_listen.bind(NET_DEFAULT_IP, m_u16_port);
+    if (int_Ret == -P_EINVARG) {
         LOG_ERR("invalid IP address %s: %s", NET_DEFAULT_IP, STAT_ToString(P_EINVARG));
-        return -P_EINVARG;
+        return int_Ret;
     }
-    if (bind(m_fd_listen, reinterpret_cast<sockaddr*>(&str_Address), sizeof(str_Address)) < 0) {
-        const int int_Err = -STAT_MapErrno(errno);
-        LOG_ERR("bind() to %s:%hu failed: %s (errno %d)", NET_DEFAULT_IP, m_u16_port,
-                STAT_ToString(-int_Err), errno);
-        return int_Err;
+    if (int_Ret < 0) {
+        LOG_ERR("bind() failed: %s (errno %d)", STAT_ToString(-int_Ret), errno);
+        return int_Ret;
     }
 
     /* Start listening for incoming connections */
-    if (listen(m_fd_listen, SOMAXCONN) < 0) {
-        LOG_ERR("listen() failed: %s (errno %d)", STAT_ToString(STAT_MapErrno(errno)), errno);
-        return -P_EIO;
+    int_Ret = m_obj_listen.listen();
+    if (int_Ret < 0) {
+        LOG_ERR("listen() failed: %s (errno %d)", STAT_ToString(-int_Ret), errno);
+        return int_Ret;
     }
 
     /* Set the listening socket to non-blocking mode */
-    const int int_Res = net_setSocketNonBlocking(m_fd_listen);
-    if (int_Res < 0) {
-        LOG_ERR("fcntl() on the listening socket failed: %s (errno %d)", STAT_ToString(-int_Res),
+    int_Ret = m_obj_listen.setNonBlocking();
+    if (int_Ret < 0) {
+        LOG_ERR("fcntl() on the listening socket failed: %s (errno %d)", STAT_ToString(-int_Ret),
                 errno);
-        return int_Res;
+        return int_Ret;
     }
 
-    /* Get port number bound to the socket */
-    socklen_t u32_Length = sizeof(str_Address);
-    if (getsockname(m_fd_listen, reinterpret_cast<sockaddr*>(&str_Address), &u32_Length) < 0) {
-        LOG_ERR("getsockname() failed: %s (errno %d)", STAT_ToString(STAT_MapErrno(errno)), errno);
-        return -P_EIO;
+    /* Get the port actually bound to */
+    int_Ret = m_obj_listen.localPort(&m_u16_port);
+    if (int_Ret < 0) {
+        LOG_ERR("getsockname() failed: %s (errno %d)", STAT_ToString(-int_Ret), errno);
+        return int_Ret;
     }
-    m_u16_port = ntohs(str_Address.sin_port);
 
     LOG_INF("listening on %s:%hu", NET_DEFAULT_IP, m_u16_port);
     return P_OK;
@@ -268,43 +232,53 @@ int TcpServer::openListenSocket() {
 void TcpServer::acceptConnections() {
     /* Several clients may be waiting to connect, accept til there are none left */
     while (true) {
-        const int fd_Client = accept(m_fd_listen, nullptr, nullptr);
-
-        if (fd_Client < 0) {
-            if (!net_isTryAgain()) {
-                LOG_ERR("accept() failed: %s (errno %d)", STAT_ToString(STAT_MapErrno(errno)),
-                        errno);
-            }
+        TcpSocket obj_Client;
+        const int int_Ret = m_obj_listen.accept(&obj_Client);
+        if (int_Ret < 0) {
+            LOG_ERR("accept() failed: %s (errno %d)", STAT_ToString(-int_Ret), errno);
             return;
         }
+        if (!obj_Client.isOpen()) {
+            return;  // No client in the backlog to accept.
+        }
 
-        const int int_Res = net_setSocketNonBlocking(fd_Client);
+        /* Configure the client socket */
+        const int fd_Client = obj_Client.fd();
+        const int int_Res   = obj_Client.setNonBlocking();
         if (int_Res < 0) {
             LOG_ERR("fcntl() on client fd %d failed: %s (errno %d)", fd_Client,
                     STAT_ToString(-int_Res), errno);
-            close(fd_Client);
-            return;
+            return;  // obj_Client closes the fd when it goes out of scope.
         }
 
         /* Successfully accepted and configured a new client socket */
-        m_map_connections[fd_Client] = Connection{};
+        Connection str_Connection;
+        str_Connection.obj_Socket = std::move(obj_Client);
+        m_map_connections.emplace(fd_Client, std::move(str_Connection));
         LOG_DBG("client fd %d connected", fd_Client);
     }
 }
 
 int TcpServer::readFrom(int fd_Client, Connection& str_Connection) {
     std::array<char, NET_READ_CHUNK_SIZE> arr_Chunks;
-    const ssize_t ssiz_Received = recv(fd_Client, &arr_Chunks[0], arr_Chunks.size(), 0);
-    if (ssiz_Received == 0) {  // EOF
+    size_t                                siz_Received   = 0;
+    bool                                  bol_PeerClosed = false;
+
+    const int int_Ret = str_Connection.obj_Socket.recv(arr_Chunks.data(), arr_Chunks.size(),
+                                                       &siz_Received, &bol_PeerClosed);
+    if (int_Ret < 0) {
+        return int_Ret;
+    }
+    if (bol_PeerClosed) {
         str_Connection.bol_PeerClosed = true;
         return P_OK;
     }
-    if (ssiz_Received < 0) {
-        return net_isTryAgain() ? P_OK : -STAT_MapErrno(errno);
+    if (siz_Received == 0) {
+        return P_OK;  // nothing to read right now
     }
 
     /* Append the received data to the connection's read buffer */
-    str_Connection.sz_ReadBuffer.append(arr_Chunks.data(), static_cast<size_t>(ssiz_Received));
+    str_Connection.sz_ReadBuffer.append(arr_Chunks.data(), siz_Received);
 
     /* Process any complete lines that have been received per write buffer allows */
     processPendingLines(str_Connection);
@@ -320,8 +294,6 @@ int TcpServer::readFrom(int fd_Client, Connection& str_Connection) {
     if (siz_Unfinished > middlewares::PWP_MAX_LINE_LENGTH) {
         LOG_WRN("client fd %d: line longer than %zu bytes, closing", fd_Client,
                 middlewares::PWP_MAX_LINE_LENGTH);
-        /* Tell the client why, then close once the error has been sent. The rest of its input is
-         * dropped - the connection is closing anyway */
         str_Connection.sz_ReadBuffer.clear();
         str_Connection.sz_WriteBuffer += middlewares::PWP_EncodeReply(
             middlewares::Reply{middlewares::ReplyType::REPLY_ERROR, "line too long", 0});
@@ -332,17 +304,19 @@ int TcpServer::readFrom(int fd_Client, Connection& str_Connection) {
 }
 
 int TcpServer::writeTo(int fd_Client, Connection& str_Connection) {
-    const ssize_t ssiz_Sent = send(fd_Client, str_Connection.sz_WriteBuffer.data(),
-                                   str_Connection.sz_WriteBuffer.size(), 0);
-    if (ssiz_Sent < 0) {
-        return net_isTryAgain() ? P_OK : -STAT_MapErrno(errno);
+    size_t    siz_NumBytesSent = 0;
+    const int int_Ret =
+        str_Connection.obj_Socket.send(str_Connection.sz_WriteBuffer.data(),
+                                       str_Connection.sz_WriteBuffer.size(), &siz_NumBytesSent);
+    if (int_Ret < 0) {
+        return int_Ret;
     }
 
-    /* send() may accept only part of the data: drop what was sent, keep the rest */
-    str_Connection.sz_WriteBuffer.erase(0, static_cast<size_t>(ssiz_Sent));
+    /* Drop what was sent, keep the rest */
+    str_Connection.sz_WriteBuffer.erase(0, siz_NumBytesSent);
 
-    /* send() freed space in the write buffer: run any commands still waiting in the read buffer
-       and queue their replies */
+    /* send() freed space in the write buffer: run any commands still pending in the read buffer and
+       queue their replies */
     processPendingLines(str_Connection);
 
     return P_OK;
@@ -364,7 +338,6 @@ void TcpServer::processPendingLines(Connection& str_Connection) {
 
 void TcpServer::closeConnection(int fd_Client) {
     LOG_DBG("client fd %d closed", fd_Client);
-    close(fd_Client);  // close the socket file descriptor
     m_map_connections.erase(fd_Client);
 }
 
