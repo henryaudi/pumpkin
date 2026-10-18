@@ -199,7 +199,8 @@ int TcpServer::openListenSocket() {
         return int_Ret;
     }
     if (int_Ret < 0) {
-        LOG_ERR("bind() failed: %s (errno %d)", STAT_ToString(-int_Ret), errno);
+        LOG_ERR("bind() to %s:%hu failed: %s (errno %d)", NET_DEFAULT_IP, m_u16_port,
+                STAT_ToString(-int_Ret), errno);
         return int_Ret;
     }
 
@@ -303,7 +304,7 @@ int TcpServer::readFrom(int fd_Client, Connection& str_Connection) {
     return P_OK;
 }
 
-int TcpServer::writeTo(int fd_Client, Connection& str_Connection) {
+int TcpServer::writeTo([[maybe_unused]] int fd_Client, Connection& str_Connection) {
     size_t    siz_NumBytesSent = 0;
     const int int_Ret =
         str_Connection.obj_Socket.send(str_Connection.sz_WriteBuffer.data(),
