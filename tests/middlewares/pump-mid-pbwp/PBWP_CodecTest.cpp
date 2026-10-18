@@ -13,10 +13,10 @@
  * @attention
  *
  * Copyright (c) 2026 Shangjie Zheng.
- * All rights reserved.
+ * SPDX-License-Identifier: Apache-2.0
  *
- * This software is licensed under terms that can be found in the LICENSE file
- * in the root directory of this software component.
+ * Licensed under the Apache License, Version 2.0. See the LICENSE file in the
+ * root directory of this repository for the full license text.
  ******************************************************************************
  */
 
