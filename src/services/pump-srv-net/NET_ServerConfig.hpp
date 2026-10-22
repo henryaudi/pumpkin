@@ -34,20 +34,30 @@ struct NetServerConfig {
 };
 
 /**
- * @brief Applies NET's command-line flags to a config: --bind <ipv4> and --port <0-65535>.
+ * @brief Sets the port the app's server will listen on.
  *
- * @details Flags NET doesn't know are skipped, so other modules can have their own on the same
- *          command line. Temporary home for NET's flags until a configuration manager parses the
- *          command line for every module.
+ * @param u16_Port The port number to set.
  *
- * @param argc       Argument count, as given to main().
- * @param argv       Arguments, as given to main(); argv[0] (the program name) is skipped.
- * @param ptr_Config Updated with the flags found. Unchanged on failure.
- *
- * @return P_OK; -P_EINVARG for a flag without a value, a non-numeric port or an invalid IPv4
- *         address; -P_ERANGE for a port above 65535.
+ * @return P_OK on success;
  */
-int NET_ParseArgs(int argc, char* argv[], NetServerConfig* ptr_Config);
+int NET_SetPort(uint16_t u16_Port);
+
+/**
+ * @brief Sets the IPv4 address the app's server will listen to.
+ *
+ * @param sz_Ip Dotted IPv4 address string, e.g. "127.0.0.1".
+ *
+ * @return P_OK on success; -P_EINVARG for NULL or an invalid address (the setting is left
+ *         unchanged).
+ */
+int NET_SetBindIp(const char* sz_Ip);
+
+/**
+ * @brief Retrieves the current server configuration.
+ *
+ * @return A const reference to the NetServerConfig structure.
+ */
+const NetServerConfig& NET_GetServerConfig();
 
 }  // namespace pumpkin::services
 

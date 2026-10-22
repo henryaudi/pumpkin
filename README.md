@@ -74,15 +74,6 @@ tests/                      unit and integration tests, mirroring src/
 
 Layers depend only on the layers below them: common → core → middlewares → services → apps.
 
-## Roadmap
-
-1. Network refactor: socket layer, server config (`--port` / `--bind`), protocol handler,
-   TCP client
-2. Binary protocol on the server, `docs/protocol-v1.md`
-3. `pumpkin-bench` and baseline numbers
-4. Persistence: write-ahead log (fsync always / everysec / no), snapshots, recovery
-5. Multicore: shared-nothing executors owning logical shards
-
 ## License
 
 Licensed under the [Apache License, Version 2.0](LICENSE).
