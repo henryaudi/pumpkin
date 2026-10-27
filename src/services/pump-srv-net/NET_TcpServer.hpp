@@ -6,7 +6,7 @@
  *          This file declares:
  *           + TcpServer: accepts clients on its configured address and answers PWP
  *             (Pumpkin Wire Protocol) requests
- *           + NET_InitServer / NET_RunServer / NET_StopServer / NET_DeinitServer: the
+ *           + NET_Init / NET_RunServer / NET_StopServer / NET_DeinitServer: the
  *             app's single server, owned by NET (front door)
  ******************************************************************************
  * @attention
@@ -117,12 +117,12 @@ private:
  *
  * @return P_OK on success; negative P_E* code on failure.
  */
-int NET_InitServer(core::KvStore* ptr_Store);
+int NET_Init(core::KvStore* ptr_Store);
 
 /**
  * @brief Serves clients until NET_StopServer() is called.
  *
- * @return P_OK once stopped; -P_ENOTINIT if NET_InitServer() didn't succeed; -P_EIO if poll()
+ * @return P_OK once stopped; -P_ENOTINIT if NET_Init() didn't succeed; -P_EIO if poll()
  *         failed.
  */
 int NET_RunServer();

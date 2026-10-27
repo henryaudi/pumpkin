@@ -356,13 +356,13 @@ void TcpServer::closeConnection(int fd_Client) {
 // ================================================================================================
 // GLOBAL SCOPE
 // ================================================================================================
-int NET_InitServer(core::KvStore* ptr_Store) {
+int NET_Init(core::KvStore* ptr_Store) {
     if (net_ptr_server != nullptr) {
-        LOG_WRN("NET_InitServer() called while a server already exists");
+        LOG_WRN("NET_Init() called while a server already exists");
         return -P_EALREADY;
     }
     if (ptr_Store == nullptr) {
-        LOG_ERR("NET_InitServer() called with a NULL data store");
+        LOG_ERR("NET_Init() called with a NULL data store");
         return -P_EINVARG;
     }
 
