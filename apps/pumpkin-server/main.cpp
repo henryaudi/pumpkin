@@ -27,98 +27,45 @@
 #include "common/pump-cmn-log/LOG_Logger.hpp"
 #include "common/pump-cmn-stat/STAT_Status.hpp"
 #include "core/pump-core-eng/ENG_KvStore.hpp"
+#include "services/pump-srv-cms/CMS_Manager.hpp"
 #include "services/pump-srv-net/NET_TcpServer.hpp"
 
 LOG_MODULE_REGISTER(SRV, LOG_LEVEL_INF)
 
 namespace {
 
-constexpr uint16_t SRV_DEFAULT_PORT = 7379;  // Default port for the pumpkin-server
-std::atomic<pumpkin::services::TcpServer*> srv_atm_server{nullptr};
-
 /**
  * @brief Called by the OS on Ctrl+C (SIGINT) or `kill` (SIGTERM): asks the server to stop.
  *
- * @details A signal handler may only do async-signal-safe work. stop() just sets an atomic flag;
- *          run() notices it within NET_POLL_TIMEOUT_MS and returns normally.
+ * @details A signal handler may only do async-signal-safe work; NET_StopServer() only sets an
+ *          atomic flag, and NET_RunServer() returns within NET_POLL_TIMEOUT_MS.
  *
  * @param int_Signal The signal number (unused).
  */
 void srv_handleStopSignal([[maybe_unused]] int int_Signal) {
-    pumpkin::services::TcpServer* ptr_Server = srv_atm_server.load();
-    if (ptr_Server != nullptr) {
-        ptr_Server->stop();
-    }
+    pumpkin::services::NET_StopServer();
 }
-
-/**
- * @brief Parses a TCP port number.
- *
- * @param sz_Text  The text to parse, e.g. argv[1].
- * @param u16_Port Receives the port on success; unchanged on failure.
- *
- * @return P_OK on success; -P_EINVARG if the text is not only digits; -P_ERANGE if it is above
- *         65535.
- */
-int srv_parsePort(const std::string& sz_Text, uint16_t& u16_Port) {
-    if (sz_Text.empty()) {
-        return -P_EINVARG;  // Invalid argument
-    }
-
-    /* Digits only */
-    for (const char ch_Char : sz_Text) {
-        if (ch_Char < '0' || ch_Char > '9') {
-            return -P_EINVARG;
-        }
-    }
-
-    if (sz_Text.size() > 5) {  // Cannot accept more than 5 digits for a port number
-        return -P_ERANGE;
-    }
-
-    const int int_Port = std::stoi(sz_Text);
-    if (int_Port > 65535) {
-        return -P_ERANGE;
-    }
-
-    u16_Port = static_cast<uint16_t>(int_Port);
-    return P_OK;
-}
-
 }  // namespace
 
 int main(int argc, char* argv[]) {
+    pumpkin::core::KvStore obj_Store;
+
     LOG_Init("info");
-
-    uint16_t u16_Port = SRV_DEFAULT_PORT;
-    if (argc > 1) {
-        const int int_Result = srv_parsePort(argv[1], u16_Port);
-        if (int_Result < 0) {
-            LOG_ERR("invalid port '%s': %s", argv[1], STAT_ToString(-int_Result));
-            std::cerr << "usage: pumpkin-server [port]   (port 0-65535; 0 = any free port)\n";
-            return EXIT_FAILURE;
-        }
+    if (pumpkin::services::CMS_Init(argc, argv) < 0) {
+        return EXIT_FAILURE;
     }
-
-    pumpkin::core::KvStore       obj_Store;
-    pumpkin::services::TcpServer obj_Server(u16_Port, obj_Store);
-
-    const int int_StartResult = obj_Server.start();
-    if (int_StartResult < 0) {
-        if (int_StartResult == -P_EADDRINUSE) {
-            LOG_ERR("port %hu is in use; pick another port, or 0 for any free port", u16_Port);
-        }
+    if (pumpkin::services::NET_Init(&obj_Store) < 0) {
         return EXIT_FAILURE;
     }
 
-    srv_atm_server.store(&obj_Server);
-    std::signal(SIGINT, srv_handleStopSignal);
-    std::signal(SIGTERM, srv_handleStopSignal);
+    std::signal(SIGINT, srv_handleStopSignal);   // Register signal handler for Ctrl+C
+    std::signal(SIGTERM, srv_handleStopSignal);  // Register signal handler for `kill` command
 
-    const int int_RunResult = obj_Server.run();
+    const int int_Ret = pumpkin::services::NET_RunServer();
 
-    srv_atm_server.store(nullptr);  // Clear the global server pointer after stopping
+    /* Run server out of scope */
     LOG_INF("shutting down");
+    pumpkin::services::NET_DeinitServer();
 
-    return (int_RunResult == P_OK) ? EXIT_SUCCESS : EXIT_FAILURE;
+    return (int_Ret == P_OK) ? EXIT_SUCCESS : EXIT_FAILURE;
 }

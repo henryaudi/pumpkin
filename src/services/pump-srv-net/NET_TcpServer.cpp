@@ -25,6 +25,7 @@
 #include <array>
 #include <cerrno>
 #include <csignal>
+#include <memory>
 #include <optional>
 #include <utility>
 #include <vector>
@@ -46,14 +47,18 @@ namespace {
 constexpr int    NET_POLL_TIMEOUT_MS  = 100;
 constexpr size_t NET_READ_CHUNK_SIZE  = 4096;
 constexpr size_t NET_MAX_WRITE_BUFFER = 1024 * 1024;
-constexpr char   NET_DEFAULT_IP[]     = "127.0.0.1";
+
+std::unique_ptr<TcpServer> net_ptr_server;           // app's front door server
+std::atomic<TcpServer*>    net_atm_server{nullptr};  // same server, for NET_StopServer()
 }  // namespace
 
 // ================================================================================================
 // GLOBAL SCOPE
 // ================================================================================================
-TcpServer::TcpServer(uint16_t u16_Port, core::KvStore& obj_Store)
-    : m_u16_port(u16_Port), m_obj_store(obj_Store) {}
+TcpServer::TcpServer(const NetServerConfig& str_NetConfig, core::KvStore& obj_Store)
+    : m_sz_bindIp(str_NetConfig.sz_BindIp),
+      m_u16_port(str_NetConfig.u16_Port),
+      m_obj_store(obj_Store) {}
 
 int TcpServer::start() {
     if (m_obj_listen.isOpen()) {
@@ -139,7 +144,7 @@ int TcpServer::run() {
             }
             /* Write to the client if there's data in the write buffer */
             if (bol_KeepOpen && !str_Connection.sz_WriteBuffer.empty()) {
-                const int int_Result = writeTo(str_PollFd.fd, str_Connection);
+                const int int_Result = writeTo(str_Connection);
                 if (int_Result < 0) {
                     LOG_DBG("client fd %d: write failed: %s", str_PollFd.fd,
                             STAT_ToString(-int_Result));
@@ -193,13 +198,13 @@ int TcpServer::openListenSocket() {
     }
 
     /* Bind the listening socket to the specified IP address and port */
-    int_Ret = m_obj_listen.bind(NET_DEFAULT_IP, m_u16_port);
+    int_Ret = m_obj_listen.bind(m_sz_bindIp.c_str(), m_u16_port);
     if (int_Ret == -P_EINVARG) {
-        LOG_ERR("invalid IP address %s: %s", NET_DEFAULT_IP, STAT_ToString(P_EINVARG));
+        LOG_ERR("invalid IP address %s: %s", m_sz_bindIp.c_str(), STAT_ToString(P_EINVARG));
         return int_Ret;
     }
     if (int_Ret < 0) {
-        LOG_ERR("bind() to %s:%hu failed: %s (errno %d)", NET_DEFAULT_IP, m_u16_port,
+        LOG_ERR("bind() to %s:%hu failed: %s (errno %d)", m_sz_bindIp.c_str(), m_u16_port,
                 STAT_ToString(-int_Ret), errno);
         return int_Ret;
     }
@@ -226,7 +231,13 @@ int TcpServer::openListenSocket() {
         return int_Ret;
     }
 
-    LOG_INF("listening on %s:%hu", NET_DEFAULT_IP, m_u16_port);
+    LOG_INF("listening on %s:%hu", m_sz_bindIp.c_str(), m_u16_port);
+    if (m_sz_bindIp != NET_DEFAULT_BIND_IP) {
+        LOG_WRN(
+            "bound to %s, not localhost: other machines can connect, and there is no "
+            "authentication yet",
+            m_sz_bindIp.c_str());
+    }
     return P_OK;
 }
 
@@ -304,7 +315,7 @@ int TcpServer::readFrom(int fd_Client, Connection& str_Connection) {
     return P_OK;
 }
 
-int TcpServer::writeTo([[maybe_unused]] int fd_Client, Connection& str_Connection) {
+int TcpServer::writeTo(Connection& str_Connection) {
     size_t    siz_NumBytesSent = 0;
     const int int_Ret =
         str_Connection.obj_Socket.send(str_Connection.sz_WriteBuffer.data(),
@@ -340,6 +351,63 @@ void TcpServer::processPendingLines(Connection& str_Connection) {
 void TcpServer::closeConnection(int fd_Client) {
     LOG_DBG("client fd %d closed", fd_Client);
     m_map_connections.erase(fd_Client);
+}
+
+// ================================================================================================
+// GLOBAL SCOPE
+// ================================================================================================
+int NET_Init(core::KvStore* ptr_Store) {
+    if (net_ptr_server != nullptr) {
+        LOG_WRN("NET_Init() called while a server already exists");
+        return -P_EALREADY;
+    }
+    if (ptr_Store == nullptr) {
+        LOG_ERR("NET_Init() called with a NULL data store");
+        return -P_EINVARG;
+    }
+
+    /* Instantiate and attempt to start server */
+    const NetServerConfig& str_Config    = NET_GetServerConfig();
+    auto                   ptr_NewServer = std::make_unique<TcpServer>(str_Config, *ptr_Store);
+    const int              int_Ret       = ptr_NewServer->start();
+    if (int_Ret < 0) {
+        if (int_Ret == -P_EADDRINUSE) {
+            LOG_ERR("port %hu is in use; pick another with --port, or --port 0 for any free port",
+                    str_Config.u16_Port);
+        }
+        return int_Ret;
+    }
+
+    /* Server started, link it to the global pointer */
+    net_ptr_server = std::move(ptr_NewServer);
+    net_atm_server.store(net_ptr_server.get());
+
+    return P_OK;
+}
+
+int NET_RunServer() {
+    if (net_ptr_server == nullptr) {
+        return -P_ENOTINIT;
+    }
+
+    return net_ptr_server->run();
+}
+
+void NET_StopServer() {
+    /* Signal the server to stop */
+    TcpServer* ptr_AtomServer = net_atm_server.load();
+    if (ptr_AtomServer != nullptr) {
+        ptr_AtomServer->stop();
+    }
+}
+
+void NET_DeinitServer() {
+    /* Stop the atomic pointer first to avoid race conditions with other threads accessing the
+       actual server */
+    net_atm_server.store(nullptr);
+
+    /* Stop the actual server */
+    net_ptr_server.reset();
 }
 
 }  // namespace pumpkin::services

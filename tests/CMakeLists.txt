@@ -58,6 +58,7 @@ gtest_discover_tests(pump-mid-cde-tests)
 
 # ---- pump-srv-net (real TCP on 127.0.0.1) ----
 add_executable(pump-srv-net-tests
+    services/pump-srv-net/NET_ServerConfigTest.cpp
     services/pump-srv-net/NET_TcpSocketTest.cpp
     services/pump-srv-net/NET_TcpServerTest.cpp)
 target_link_libraries(pump-srv-net-tests PRIVATE
@@ -66,3 +67,12 @@ target_link_libraries(pump-srv-net-tests PRIVATE
     GTest::gtest_main
     Threads::Threads)
 gtest_discover_tests(pump-srv-net-tests)
+
+# ---- pump-srv-cms ----
+add_executable(pump-srv-cms-tests
+    services/pump-srv-cms/CMS_ManagerTest.cpp)
+target_link_libraries(pump-srv-cms-tests PRIVATE
+    pump::srv-cms
+    pumpkin::warnings
+    GTest::gtest_main)
+gtest_discover_tests(pump-srv-cms-tests)
