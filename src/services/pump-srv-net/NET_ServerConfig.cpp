@@ -27,7 +27,7 @@
 #include "common/pump-cmn-log/LOG_Logger.hpp"
 #include "common/pump-cmn-stat/STAT_Status.hpp"
 
-LOG_MODULE_REGISTER(NET, LOG_LEVEL_DEBUG)
+LOG_MODULE_REGISTER(NET, LOG_LEVEL_DBG)
 
 namespace pumpkin::services {
 
