@@ -139,14 +139,14 @@ int cms_validateLogLevel(const char* sz_Val) {
 constexpr CmsOption CMS_OPTIONS[] = {
     /* bind IP address */
     {"--bind", "<ipv4>", "address to listen on (default 127.0.0.1; 0.0.0.0 = all interfaces)",
-     cms_applyBindIp},
+     cms_applyBindIp, cms_validateBindIp},
 
     /* port number */
-    {"--port", "<0-65535>", "port to listen on (default 7379; 0 = any free port)", cms_applyPort},
+    {"--port", "<0-65535>", "port to listen on (default 7379; 0 = any free port)", cms_applyPort, cms_validatePort},
 
     /* log level */
     {"--loglevel", "<level>", "none, critical, error, warn, info, debug, trace (default info)",
-     cms_applyLogLevel},
+     cms_applyLogLevel, cms_validateLogLevel},
 };
 
 /**
