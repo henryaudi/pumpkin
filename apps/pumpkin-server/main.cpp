@@ -58,8 +58,8 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
 
-    std::signal(SIGINT, srv_handleStopSignal);  // Register signal handler for Ctrl+C
-    std::signal(SIGTERM, srv_handleStopSignal); // Register signal handler for `kill` command
+    std::signal(SIGINT, srv_handleStopSignal);   // Register signal handler for Ctrl+C
+    std::signal(SIGTERM, srv_handleStopSignal);  // Register signal handler for `kill` command
 
     const int int_Ret = pumpkin::services::NET_RunServer();
 

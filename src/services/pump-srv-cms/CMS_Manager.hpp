@@ -17,24 +17,24 @@
  ******************************************************************************
  */
 
-#ifndef CMS_MANAGER_HPP_
-#define CMS_MANAGER_HPP_
+#ifndef PUMPKIN_CMS_MANAGER_HPP_
+#define PUMPKIN_CMS_MANAGER_HPP_
 
 namespace pumpkin::services {
+/**
+ * @brief Applies the command line to every module
+ *
+ * @details Each option takes one value. Settings are applied as they are read; on any error the
+ *          reason and the usage are printed and the caller is expected to exit. Unknown options
+ *          and bare arguments are errors.
+ *
+ * @param argc The number of command line arguments
+ * @param argv The array of command line arguments
+ *
+ * @return int Returns P_OK on success, -P_E* on failure
+ */
+int CMS_Init(int argc, char* argv[]);
 
-    /**
-     * @brief Applies the command line to every module
-     *
-     * @details Each option takes one value. Settings are applied as they are read; on any error the
-     *          reason and the usage are printed and the caller is expected to exit. Unknown options
-     *          and bare arguments are errors.
-     *
-     * @param argc The number of command line arguments
-     * @param argv The array of command line arguments
-     *
-     * @return int Returns P_OK on success, -P_E* on failure
-     */
-    int CMS_Init(int argc, char* argv[]);
-}
+}  // namespace pumpkin::services
 
-#endif  // CMS_MANAGER_HPP_
+#endif  // PUMPKIN_CMS_MANAGER_HPP_

@@ -2,7 +2,7 @@
  ******************************************************************************
  * @file    NET_TcpServer.hpp
  * @author  Shangjie Zheng
-  * @brief   Single-threaded TCP server: public interface.
+ * @brief   Single-threaded TCP server: public interface.
  *          This file declares:
  *           + TcpServer: accepts clients on its configured address and answers PWP
  *             (Pumpkin Wire Protocol) requests

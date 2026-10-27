@@ -43,6 +43,15 @@ namespace pumpkin::services {
 namespace {
 
 /**
+ * @brief NET's default config with a chosen port (0 = any free port).
+ */
+NetServerConfig net_configOnPort(uint16_t u16_Port) {
+    NetServerConfig str_Config;
+    str_Config.u16_Port = u16_Port;
+    return str_Config;
+}
+
+/**
  * @brief Opens a TCP connection to 127.0.0.1 on the given port.
  *
  * @return The connected socket, or -1 on failure.
@@ -119,31 +128,31 @@ protected:
     }
 
     core::KvStore m_obj_store;
-    TcpServer     m_obj_server{0, m_obj_store};
+    TcpServer     m_obj_server{net_configOnPort(0), m_obj_store};
     std::thread   m_thr_server;
 };
 
 /* start() reports WHY it failed: a port that is already taken gives -P_EADDRINUSE */
 TEST(TcpServerStart, PortInUseReturnsAddrInUse) {
     core::KvStore obj_Store;
-    TcpServer     obj_First(0, obj_Store);
+    TcpServer     obj_First(net_configOnPort(0), obj_Store);
     ASSERT_EQ(obj_First.start(), P_OK);
 
-    TcpServer obj_Second(obj_First.port(), obj_Store);
+    TcpServer obj_Second(net_configOnPort(obj_First.port()), obj_Store);
     EXPECT_EQ(obj_Second.start(), -P_EADDRINUSE);
 }
 
 /* run() without a successful start() returns at once instead of looping forever */
 TEST(TcpServerRun, WithoutStartReturnsNotInit) {
     core::KvStore obj_Store;
-    TcpServer     obj_Server(0, obj_Store);
+    TcpServer     obj_Server(net_configOnPort(0), obj_Store);
     EXPECT_EQ(obj_Server.run(), -P_ENOTINIT);
 }
 
 /* run() returns P_OK when it stops because stop() was called */
 TEST(TcpServerRun, ReturnsZeroAfterStop) {
     core::KvStore obj_Store;
-    TcpServer     obj_Server(0, obj_Store);
+    TcpServer     obj_Server(net_configOnPort(0), obj_Store);
     ASSERT_EQ(obj_Server.start(), P_OK);
 
     int         int_RunResult = -P_EIO;
@@ -156,10 +165,10 @@ TEST(TcpServerRun, ReturnsZeroAfterStop) {
 /* Issue #9: a failed start() leaves the server not started, so run() reports it */
 TEST(TcpServerStart, FailureLeavesServerNotStarted) {
     core::KvStore obj_Store;
-    TcpServer     obj_First(0, obj_Store);
+    TcpServer     obj_First(net_configOnPort(0), obj_Store);
     ASSERT_EQ(obj_First.start(), P_OK);
 
-    TcpServer obj_Second(obj_First.port(), obj_Store);
+    TcpServer obj_Second(net_configOnPort(obj_First.port()), obj_Store);
     EXPECT_EQ(obj_Second.start(), -P_EADDRINUSE);
     EXPECT_EQ(obj_Second.run(), -P_ENOTINIT);
 }
@@ -169,22 +178,22 @@ TEST(TcpServerStart, CanBeRetriedAfterFailure) {
     core::KvStore obj_Store;
     uint16_t      u16_Port = 0;
     {
-        TcpServer obj_First(0, obj_Store);
+        TcpServer obj_First(net_configOnPort(0), obj_Store);
         ASSERT_EQ(obj_First.start(), P_OK);
         u16_Port = obj_First.port();
 
-        TcpServer obj_Second(u16_Port, obj_Store);
+        TcpServer obj_Second(net_configOnPort(u16_Port), obj_Store);
         EXPECT_EQ(obj_Second.start(), -P_EADDRINUSE);
     }  // both destroyed here: the port is free again
 
-    TcpServer obj_Retry(u16_Port, obj_Store);
+    TcpServer obj_Retry(net_configOnPort(u16_Port), obj_Store);
     EXPECT_EQ(obj_Retry.start(), P_OK);
 }
 
 /* start() on a server that is already started is refused instead of leaking a second socket */
 TEST(TcpServerStart, SecondStartReturnsAlready) {
     core::KvStore obj_Store;
-    TcpServer     obj_Server(0, obj_Store);
+    TcpServer     obj_Server(net_configOnPort(0), obj_Store);
     ASSERT_EQ(obj_Server.start(), P_OK);
     EXPECT_EQ(obj_Server.start(), -P_EALREADY);
 }
@@ -347,6 +356,63 @@ TEST_F(TcpServerTest, HalfClosedClientIsClosedAfterReplies) {
     const ssize_t        ssiz_Read = recv(fd_Client, arr_Buffer.data(), arr_Buffer.size(), 0);
     EXPECT_EQ(ssiz_Read, 0);
     close(fd_Client);
+}
+
+// ---- NET front door -------------------------------------------------------------------------
+
+/* The front door uses process-wide state (the app server and NET's settings): reset both */
+class NetFrontDoorTest : public ::testing::Test {
+protected:
+    void SetUp() override {
+        NET_SetPort(0);  // any free port, so tests never collide with a real server on 7379
+    }
+    void TearDown() override {
+        NET_DeinitServer();  // before m_obj_store is destroyed
+        NET_SetPort(NET_DEFAULT_PORT);
+    }
+    core::KvStore m_obj_store;
+};
+
+TEST_F(NetFrontDoorTest, RunBeforeInitIsNotInit) {
+    EXPECT_EQ(NET_RunServer(), -P_ENOTINIT);
+}
+
+TEST_F(NetFrontDoorTest, StopAndDeinitWithoutServerAreHarmless) {
+    NET_StopServer();
+    NET_DeinitServer();
+    EXPECT_EQ(NET_RunServer(), -P_ENOTINIT);
+}
+
+TEST_F(NetFrontDoorTest, InitRunStopDeinit) {
+    ASSERT_EQ(NET_Init(&m_obj_store), P_OK);
+
+    std::thread thr_Server([] { EXPECT_EQ(NET_RunServer(), P_OK); });
+    NET_StopServer();  // from another thread, as a signal handler would
+    thr_Server.join();
+
+    NET_DeinitServer();
+    EXPECT_EQ(NET_RunServer(), -P_ENOTINIT);  // the server is gone
+}
+
+TEST_F(NetFrontDoorTest, SecondInitIsAlready) {
+    ASSERT_EQ(NET_Init(&m_obj_store), P_OK);
+    EXPECT_EQ(NET_Init(&m_obj_store), -P_EALREADY);
+}
+
+TEST_F(NetFrontDoorTest, FailedInitKeepsNothingAndCanRetry) {
+    TcpServer obj_Blocker(net_configOnPort(0), m_obj_store);  // takes a port
+    ASSERT_EQ(obj_Blocker.start(), P_OK);
+
+    NET_SetPort(obj_Blocker.port());
+    EXPECT_EQ(NET_Init(&m_obj_store), -P_EADDRINUSE);
+    EXPECT_EQ(NET_RunServer(), -P_ENOTINIT);  // nothing was kept
+
+    NET_SetPort(0);
+    EXPECT_EQ(NET_Init(&m_obj_store), P_OK);  // retry works
+}
+
+TEST_F(NetFrontDoorTest, NullStoreIsInvalid) {
+    EXPECT_EQ(NET_Init(nullptr), -P_EINVARG);
 }
 
 }  // namespace

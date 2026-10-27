@@ -142,7 +142,8 @@ constexpr CmsOption CMS_OPTIONS[] = {
      cms_applyBindIp, cms_validateBindIp},
 
     /* port number */
-    {"--port", "<0-65535>", "port to listen on (default 7379; 0 = any free port)", cms_applyPort, cms_validatePort},
+    {"--port", "<0-65535>", "port to listen on (default 7379; 0 = any free port)", cms_applyPort,
+     cms_validatePort},
 
     /* log level */
     {"--loglevel", "<level>", "none, critical, error, warn, info, debug, trace (default info)",
@@ -205,7 +206,7 @@ int CMS_Init(int argc, char* argv[]) {
     if (argc > 0 && argv == nullptr) {
         return -P_EINVARG;
     }
-    const char* sz_Program = (argc > 0) ? argv[0] : "pumpkin-server";
+    const char* sz_Program = "pumpkin-server";
 
     /* Check every flag and value. Nothing is changed here, so a bad argument will be caught without
      * affecting program state */
