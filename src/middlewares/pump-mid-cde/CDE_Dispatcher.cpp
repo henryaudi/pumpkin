@@ -85,6 +85,9 @@ Reply CDE_ExecuteCommand(const Command& str_Command, core::KvStore& obj_Store) {
             /* Return the number of keys removed */
             return Reply{ReplyType::REPLY_INTEGER, "", bol_Removed ? 1 : 0};
         }
+        default:
+            /* Unknown command type */
+            break;
     }
     LOG_ERR("unknown command type %d", static_cast<int>(str_Command.enm_Type));
     return Reply{ReplyType::REPLY_ERROR, "internal error: unknown command", 0};
