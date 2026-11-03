@@ -5,7 +5,6 @@
  * @brief   Pumpkin Binary Wire Protocol (PBWP) codec: public interface.
  *          This file declares functions to:
  *           + Encode / decode request frames (client side encodes, server decodes)
- *           + Turn a decoded request into the protocol-independent Command
  *           + Encode / decode reply frames (server side encodes, client decodes)
  ******************************************************************************
  * @attention
@@ -25,8 +24,6 @@
 #include <string>
 
 #include "middlewares/pump-mid-pbwp/PBWP_Frame.hpp"
-#include "middlewares/pump-mid-pwp/PWP_Command.hpp"
-#include "middlewares/pump-mid-pwp/PWP_Reply.hpp"
 
 namespace pumpkin::middlewares {
 
@@ -59,21 +56,6 @@ int PBWP_EncodeRequest(const PbwpRequest& str_Request, uint8_t* ptr_Out, size_t 
  *         -P_EINVARG also for a NULL ptr_Request, or a NULL ptr_In with a non-zero length.
  */
 int PBWP_DecodeRequest(const uint8_t* ptr_In, size_t siz_Length, PbwpRequest* ptr_Request);
-
-/**
- * @brief Checks a decoded request's opcode and arguments, and turns it into a Command.
- *
- * @details Errors here are about one request, not the stream: the caller sends an error reply
- *          and keeps the connection open, like a bad text command.
- *
- * @param ptr_Request The decoded request; its arguments are moved into the command.
- * @param ptr_Command Receives the command.
- * @param ptr_Error   Receives the error message on failure.
- *
- * @return P_OK; -P_EINVARG for an unknown opcode or a wrong argument count; -P_ERANGE if a key is
- *         longer than PBWP_MAX_KEY_SIZE.
- */
-int PBWP_PbwpToCommand(PbwpRequest* ptr_Request, Command* ptr_Command, std::string* ptr_Error);
 
 /**
  * @brief Encodes one reply frame into a caller-provided byte buffer. Same size-query and return
