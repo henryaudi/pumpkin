@@ -24,9 +24,9 @@
 #include <iostream>
 #include <string>
 
+#include "applications/pump-app-eng/ENG_KvStore.hpp"
 #include "common/pump-cmn-log/LOG_Logger.hpp"
 #include "common/pump-cmn-stat/STAT_Status.hpp"
-#include "core/pump-core-eng/ENG_KvStore.hpp"
 #include "services/pump-srv-cms/CMS_Manager.hpp"
 #include "services/pump-srv-net/NET_TcpServer.hpp"
 
@@ -48,7 +48,7 @@ void srv_handleStopSignal([[maybe_unused]] int int_Signal) {
 }  // namespace
 
 int main(int argc, char* argv[]) {
-    pumpkin::core::KvStore obj_Store;
+    pumpkin::applications::KvStore obj_Store;
 
     LOG_Init("info");
     if (pumpkin::services::CMS_Init(argc, argv) < 0) {

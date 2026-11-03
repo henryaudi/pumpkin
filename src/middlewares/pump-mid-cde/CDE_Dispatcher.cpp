@@ -43,7 +43,7 @@ namespace pumpkin::middlewares {
 // ================================================================================================
 // GLOBAL SCOPE
 // ================================================================================================
-Reply CDE_ExecuteCommand(const Command& str_Command, core::KvStore& obj_Store) {
+Reply CDE_ExecuteCommand(const Command& str_Command, applications::KvStore& obj_Store) {
     switch (str_Command.enm_Type) {
         case CommandType::CMD_PING:
             LOG_INF("PING");

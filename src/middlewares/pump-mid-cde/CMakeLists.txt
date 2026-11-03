@@ -6,7 +6,7 @@ add_library(pump::mid-cde ALIAS pump-mid-cde)
 target_include_directories(pump-mid-cde PUBLIC ${PROJECT_SOURCE_DIR}/src)
 target_link_libraries(pump-mid-cde
     PUBLIC
-        pump::core-eng
+        pump::app-eng
     PRIVATE
         pump::cmn-log
         pumpkin::warnings)

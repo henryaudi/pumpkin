@@ -21,7 +21,7 @@
 
 #include <string>
 
-#include "core/pump-core-eng/ENG_KvStore.hpp"
+#include "applications/pump-app-eng/ENG_KvStore.hpp"
 #include "middlewares/pump-mid-cde/CDE_Command.hpp"
 #include "middlewares/pump-mid-cde/CDE_Reply.hpp"
 
@@ -35,7 +35,7 @@ namespace pumpkin::middlewares {
  *
  * @return The reply for the client.
  */
-Reply CDE_ExecuteCommand(const Command& str_Command, core::KvStore& obj_Store);
+Reply CDE_ExecuteCommand(const Command& str_Command, applications::KvStore& obj_Store);
 
 }  // namespace pumpkin::middlewares
 

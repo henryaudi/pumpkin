@@ -55,7 +55,7 @@ std::atomic<TcpServer*>    net_atm_server{nullptr};  // same server, for NET_Sto
 // ================================================================================================
 // GLOBAL SCOPE
 // ================================================================================================
-TcpServer::TcpServer(const NetServerConfig& str_NetConfig, core::KvStore& obj_Store)
+TcpServer::TcpServer(const NetServerConfig& str_NetConfig, applications::KvStore& obj_Store)
     : m_sz_bindIp(str_NetConfig.sz_BindIp),
       m_u16_port(str_NetConfig.u16_Port),
       m_obj_store(obj_Store) {}
@@ -356,7 +356,7 @@ void TcpServer::closeConnection(int fd_Client) {
 // ================================================================================================
 // GLOBAL SCOPE
 // ================================================================================================
-int NET_Init(core::KvStore* ptr_Store) {
+int NET_Init(applications::KvStore* ptr_Store) {
     if (net_ptr_server != nullptr) {
         LOG_WRN("NET_Init() called while a server already exists");
         return -P_EALREADY;

@@ -17,9 +17,9 @@
  ******************************************************************************
  */
 
-#include "core/pump-core-eng/ENG_KvStore.hpp"
+#include "applications/pump-app-eng/ENG_KvStore.hpp"
 
-namespace pumpkin::core {
+namespace pumpkin::applications {
 
 void KvStore::set(const std::string& sz_Key, const std::string& sz_Value) {
     m_umap_data[sz_Key] = sz_Value;
@@ -42,4 +42,4 @@ size_t KvStore::size() const {
     return m_umap_data.size();
 }
 
-}  // namespace pumpkin::core
+}  // namespace pumpkin::applications

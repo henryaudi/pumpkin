@@ -20,14 +20,14 @@ target_link_libraries(pump-cmn-log-tests PRIVATE
     GTest::gtest_main)
 gtest_discover_tests(pump-cmn-log-tests)
 
-# ---- pump-core-eng ----
-add_executable(pump-core-eng-tests
-    core/pump-core-eng/ENG_KvStoreTest.cpp)
-target_link_libraries(pump-core-eng-tests PRIVATE
-    pump::core-eng
+# ---- pump-app-eng ----
+add_executable(pump-app-eng-tests
+    applications/pump-app-eng/ENG_KvStoreTest.cpp)
+target_link_libraries(pump-app-eng-tests PRIVATE
+    pump::app-eng
     pumpkin::warnings
     GTest::gtest_main)
-gtest_discover_tests(pump-core-eng-tests)
+gtest_discover_tests(pump-app-eng-tests)
 
 # ---- pump-mid-pwp ----
 add_executable(pump-mid-pwp-tests

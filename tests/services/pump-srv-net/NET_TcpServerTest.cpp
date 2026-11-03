@@ -127,15 +127,15 @@ protected:
         return net_connectTo(m_obj_server.port());
     }
 
-    core::KvStore m_obj_store;
-    TcpServer     m_obj_server{net_configOnPort(0), m_obj_store};
-    std::thread   m_thr_server;
+    applications::KvStore m_obj_store;
+    TcpServer             m_obj_server{net_configOnPort(0), m_obj_store};
+    std::thread           m_thr_server;
 };
 
 /* start() reports WHY it failed: a port that is already taken gives -P_EADDRINUSE */
 TEST(TcpServerStart, PortInUseReturnsAddrInUse) {
-    core::KvStore obj_Store;
-    TcpServer     obj_First(net_configOnPort(0), obj_Store);
+    applications::KvStore obj_Store;
+    TcpServer             obj_First(net_configOnPort(0), obj_Store);
     ASSERT_EQ(obj_First.start(), P_OK);
 
     TcpServer obj_Second(net_configOnPort(obj_First.port()), obj_Store);
@@ -144,15 +144,15 @@ TEST(TcpServerStart, PortInUseReturnsAddrInUse) {
 
 /* run() without a successful start() returns at once instead of looping forever */
 TEST(TcpServerRun, WithoutStartReturnsNotInit) {
-    core::KvStore obj_Store;
-    TcpServer     obj_Server(net_configOnPort(0), obj_Store);
+    applications::KvStore obj_Store;
+    TcpServer             obj_Server(net_configOnPort(0), obj_Store);
     EXPECT_EQ(obj_Server.run(), -P_ENOTINIT);
 }
 
 /* run() returns P_OK when it stops because stop() was called */
 TEST(TcpServerRun, ReturnsZeroAfterStop) {
-    core::KvStore obj_Store;
-    TcpServer     obj_Server(net_configOnPort(0), obj_Store);
+    applications::KvStore obj_Store;
+    TcpServer             obj_Server(net_configOnPort(0), obj_Store);
     ASSERT_EQ(obj_Server.start(), P_OK);
 
     int         int_RunResult = -P_EIO;
@@ -164,8 +164,8 @@ TEST(TcpServerRun, ReturnsZeroAfterStop) {
 
 /* Issue #9: a failed start() leaves the server not started, so run() reports it */
 TEST(TcpServerStart, FailureLeavesServerNotStarted) {
-    core::KvStore obj_Store;
-    TcpServer     obj_First(net_configOnPort(0), obj_Store);
+    applications::KvStore obj_Store;
+    TcpServer             obj_First(net_configOnPort(0), obj_Store);
     ASSERT_EQ(obj_First.start(), P_OK);
 
     TcpServer obj_Second(net_configOnPort(obj_First.port()), obj_Store);
@@ -175,8 +175,8 @@ TEST(TcpServerStart, FailureLeavesServerNotStarted) {
 
 /* Issue #9: after a failure, start() can be retried once the port is free */
 TEST(TcpServerStart, CanBeRetriedAfterFailure) {
-    core::KvStore obj_Store;
-    uint16_t      u16_Port = 0;
+    applications::KvStore obj_Store;
+    uint16_t              u16_Port = 0;
     {
         TcpServer obj_First(net_configOnPort(0), obj_Store);
         ASSERT_EQ(obj_First.start(), P_OK);
@@ -192,8 +192,8 @@ TEST(TcpServerStart, CanBeRetriedAfterFailure) {
 
 /* start() on a server that is already started is refused instead of leaking a second socket */
 TEST(TcpServerStart, SecondStartReturnsAlready) {
-    core::KvStore obj_Store;
-    TcpServer     obj_Server(net_configOnPort(0), obj_Store);
+    applications::KvStore obj_Store;
+    TcpServer             obj_Server(net_configOnPort(0), obj_Store);
     ASSERT_EQ(obj_Server.start(), P_OK);
     EXPECT_EQ(obj_Server.start(), -P_EALREADY);
 }
@@ -370,7 +370,7 @@ protected:
         NET_DeinitServer();  // before m_obj_store is destroyed
         NET_SetPort(NET_DEFAULT_PORT);
     }
-    core::KvStore m_obj_store;
+    applications::KvStore m_obj_store;
 };
 
 TEST_F(NetFrontDoorTest, RunBeforeInitIsNotInit) {
