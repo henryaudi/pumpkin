@@ -25,7 +25,6 @@
 #include <string>
 
 #include "common/pump-cmn-log/LOG_Logger.hpp"
-#include "middlewares/pump-mid-pwp/PWP_Codec.hpp"
 
 LOG_MODULE_REGISTER(CDE, LOG_LEVEL_DBG)
 
@@ -91,20 +90,6 @@ Reply CDE_ExecuteCommand(const Command& str_Command, core::KvStore& obj_Store) {
     }
     LOG_ERR("unknown command type %d", static_cast<int>(str_Command.enm_Type));
     return Reply{ReplyType::REPLY_ERROR, "internal error: unknown command", 0};
-}
-
-std::string CDE_ProcessLine(const std::string& sz_Line, core::KvStore& obj_Store) {
-    if (sz_Line.find_first_not_of(PWP_WHITESPACE) == std::string::npos) {
-        return "";
-    }
-
-    const ParseResult str_Parsed = PWP_ParseLine(sz_Line);
-    if (!str_Parsed.opt_Command.has_value()) {
-        LOG_DBG("rejected command: %s", str_Parsed.sz_Error.c_str());
-        return PWP_EncodeReply(Reply{ReplyType::REPLY_ERROR, str_Parsed.sz_Error, 0});
-    }
-
-    return PWP_EncodeReply(CDE_ExecuteCommand(str_Parsed.opt_Command.value(), obj_Store));
 }
 
 }  // namespace pumpkin::middlewares
