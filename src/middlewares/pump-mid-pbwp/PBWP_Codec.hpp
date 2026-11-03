@@ -23,7 +23,7 @@
 #include <cstdint>
 #include <string>
 
-#include "middlewares/pump-mid-pbwp/PBWP_Frame.hpp"
+#include "middlewares/pump-mid-pbwp/PBWP_Message.hpp"
 
 namespace pumpkin::middlewares {
 

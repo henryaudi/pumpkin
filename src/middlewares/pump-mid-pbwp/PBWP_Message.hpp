@@ -1,13 +1,14 @@
 /**
  ******************************************************************************
- * @file    PBWP_Frame.hpp
+ * @file    PBWP_Message.hpp
  * @author  Shangjie Zheng
- * @brief   Pumpkin Binary Wire Protocol (PBWP): wire format definitions.
+ * @brief   Pumpkin Binary Wire Protocol (PBWP): messages and wire format definitions.
  *          This file declares:
- *           + Frame constants: magic, version, header size, limits
+ *           + PbwpRequest / PbwpReply: the protocol's messages
  *           + PbwpOpcode / PbwpReplyType: the values carried in the header
- *           + PbwpRequest / PbwpReply: decoded frames
- *          Frame: 12-byte header (little-endian), then a body of body-length bytes.
+ *           + Wire constants: magic, version, header size, limits
+ *          On the wire, each message is one frame: a 12-byte header (little-endian), then a
+ *          payload of payload-length bytes.
  ******************************************************************************
  * @attention
  *
@@ -19,8 +20,8 @@
  ******************************************************************************
  */
 
-#ifndef PUMPKIN_PBWP_FRAME_HPP_
-#define PUMPKIN_PBWP_FRAME_HPP_
+#ifndef PUMPKIN_PBWP_MESSAGE_HPP_
+#define PUMPKIN_PBWP_MESSAGE_HPP_
 
 #include <cstddef>
 #include <cstdint>
@@ -116,4 +117,4 @@ struct PbwpReply {
 
 }  // namespace pumpkin::middlewares
 
-#endif  // PUMPKIN_PBWP_FRAME_HPP_
+#endif  // PUMPKIN_PBWP_MESSAGE_HPP_

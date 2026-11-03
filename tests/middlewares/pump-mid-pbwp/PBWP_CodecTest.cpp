@@ -35,7 +35,7 @@
 namespace pumpkin::middlewares {
 namespace {
 
-/* "SET a 1" with request id 7: the worked example from PBWP_Frame.hpp (24 bytes) */
+/* "SET a 1" with request id 7: the worked example from PBWP_Message.hpp (24 bytes) */
 constexpr std::array<uint8_t, 24> PBWP_TEST_SET_A_1 = {
     0xB1, 0x01, 0x03, 0x00,  // magic, version, opcode SET, flags
     0x07, 0x00, 0x00, 0x00,  // request id 7
