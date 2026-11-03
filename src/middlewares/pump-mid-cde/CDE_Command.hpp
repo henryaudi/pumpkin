@@ -1,8 +1,8 @@
 /**
  ******************************************************************************
- * @file    PWP_Command.hpp
+ * @file    CDE_Command.hpp
  * @author  Shangjie Zheng
- * @brief   Pumpkin Wire Protocol (PWP) command types.
+ * @brief   Commands Pumpkin understands, independent of the wire protocol.
  *          This file defines:
  *           + CommandType: the commands Pumpkin understands
  *           + Command: a parsed client request
@@ -17,8 +17,8 @@
  ******************************************************************************
  */
 
-#ifndef PUMPKIN_PWP_COMMAND_HPP_
-#define PUMPKIN_PWP_COMMAND_HPP_
+#ifndef PUMPKIN_CDE_COMMAND_HPP_
+#define PUMPKIN_CDE_COMMAND_HPP_
 
 #include <string>
 #include <vector>
@@ -40,4 +40,4 @@ struct Command {
 
 }  // namespace pumpkin::middlewares
 
-#endif  // PUMPKIN_PWP_COMMAND_HPP_
+#endif  // PUMPKIN_CDE_COMMAND_HPP_
