@@ -52,10 +52,10 @@ namespace pumpkin::middlewares {
    +-----------+------------+-----------------+------------+-----------------+-----
 
    Reply payload (starts at byte 12), by reply type:
-     RPL_OK, RPL_NIL : empty (payload length 0)
-     RPL_VALUE       : the value bytes
-     RPL_INTEGER     : 8-byte signed integer
-     RPL_ERROR       : u8 status (P_E* code), then the error message text
+     RPL_OK, RPL_NIL, RPL_PONG : empty (payload length 0)
+     RPL_VALUE                 : the value bytes
+     RPL_INTEGER               : 8-byte signed integer
+     RPL_ERROR                 : u8 status (P_E* code), then the error message text
 
    Example: SET a 1 with request id 7 (24 bytes)
      B1 01 03 00 | 07 00 00 00 | 0C 00 00 00 | 02 00 | 01 00 00 00 61 | 01 00 00 00 31
@@ -96,6 +96,7 @@ enum class PbwpReplyType : uint8_t {
     RPL_NIL     = 0x02,  // no payload
     RPL_INTEGER = 0x03,  // payload: 8-byte signed integer
     RPL_ERROR   = 0x04,  // payload: u8 status (P_E* code), then the error message text
+    RPL_PONG    = 0x05,  // no payload; the reply to OP_PING
 };
 
 /**
