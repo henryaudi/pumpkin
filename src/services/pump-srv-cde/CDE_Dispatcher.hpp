@@ -22,20 +22,24 @@
 #include <string>
 
 #include "applications/pump-app-eng/ENG_KvStore.hpp"
-#include "services/pump-srv-cde/CDE_Command.hpp"
-#include "services/pump-srv-cde/CDE_Reply.hpp"
+#include "middlewares/pump-mid-pbwp/PBWP_Message.hpp"
 
 namespace pumpkin::services {
 
 /**
- * @brief Runs one command against a store.
+ * @brief Validates and runs one request against a store.
  *
- * @param str_Command The command to run.
+ * @details Always produces a reply. A bad request (wrong argument count, key too long, unknown
+ *          opcode) comes back as RPL_ERROR with a P_E* status and a message. The request id is
+ *          copied into the reply.
+ *
+ * @param str_Request The request: opcode, request id and arguments.
  * @param obj_Store   The store to read from or write to.
  *
  * @return The reply for the client.
  */
-Reply CDE_ExecuteCommand(const Command& str_Command, applications::KvStore& obj_Store);
+middlewares::PbwpReply CDE_ExecuteCommand(const middlewares::PbwpRequest& str_Req,
+                                          applications::KvStore&          obj_Store);
 
 }  // namespace pumpkin::services
 

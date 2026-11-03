@@ -25,6 +25,7 @@
 #include <string>
 
 #include "common/pump-cmn-log/LOG_Logger.hpp"
+#include "common/pump-cmn-stat/STAT_Status.hpp"
 
 LOG_MODULE_REGISTER(CDE, LOG_LEVEL_DBG)
 
@@ -40,56 +41,117 @@ constexpr size_t CDE_LOG_VALUE_PREVIEW = 32;
 
 namespace pumpkin::services {
 
+namespace {
+// ================================================================================================
+// PRIVATE SCOPE
+// ================================================================================================
+/* Longest part of a value shown in the log; longer values end with "..." */
+constexpr size_t CDE_LOG_VALUE_PREVIEW = 32;
+
+/**
+ * @brief Gives the command name of an opcode, for logs and error messages.
+ *
+ * @param enm_Opcode The opcode to get the string for.
+ *
+ * @return The string representation of the opcode.
+ */
+const char* cde_getOpcodeString(middlewares::PbwpOpcode enm_Opcode) {
+    switch (enm_Opcode) {
+        case middlewares::PbwpOpcode::OP_PING:
+            return "PING";
+        case middlewares::PbwpOpcode::OP_GET:
+            return "GET";
+        case middlewares::PbwpOpcode::OP_SET:
+            return "SET";
+        case middlewares::PbwpOpcode::OP_DEL:
+            return "DEL";
+        default:
+            break;
+    }
+    return "UNKNOWN";
+}
+
+/**
+ * @brief Checks the argument count and key sizes of a request.
+ *
+ * @param str_Request The request to check.
+ * @param ptr_Error   Receives the error message when the request is rejected.
+ *
+ * @return P_OK if the request can run; -P_EINVARG for a wrong argument count or an unknown
+ *         opcode; -P_ERANGE for a key longer than PBWP_MAX_KEY_SIZE.
+ */
+int cde_validateRequest(const middlewares::PbwpRequest& str_Request, std::string* ptr_Error) {
+    const std::vector<std::string>& vec_Args     = str_Request.vec_Args;
+    const size_t                    siz_ArgCount = vec_Args.size();
+
+    switch (str_Request.enm_Opcode) {
+        case middlewares::PbwpOpcode::OP_PING:
+            if (siz_ArgCount != 0) {
+                *ptr_Error = "PING takes no arguments";
+                return -P_EINVARG;
+            }
+            return P_OK;
+        case middlewares::PbwpOpcode::OP_GET:
+        case middlewares::PbwpOpcode::OP_DEL:
+            if (siz_ArgCount != 1) {
+                *ptr_Error = std::string(cde_getOpcodeString(str_Request.enm_Opcode)) +
+                             " takes exactly one argument";
+                return -P_EINVARG;
+            }
+            break;
+        case middlewares::PbwpOpcode::OP_SET:
+            if (siz_ArgCount == 0 || siz_ArgCount % 2 != 0) {
+                *ptr_Error = "SET takes key value pairs";
+                return -P_EINVARG;
+            }
+            break;
+        default:
+            *ptr_Error = "Unknown opcode";
+            return -P_EINVARG;
+    }
+
+    const size_t siz_Step = (str_Request.enm_Opcode == middlewares::PbwpOpcode::OP_SET) ? 2 : 1;
+    for (size_t i = 0; i < siz_ArgCount; i += siz_Step) {
+        if (vec_Args[i].size() > middlewares::PBWP_MAX_KEY_SIZE) {
+            *ptr_Error = "key too long";
+            return -P_ERANGE;
+        }
+    }
+
+    return P_OK;
+}
+
+middlewares::PbwpReply cde_makeError(uint32_t u32_RequestId, int int_Status,
+                                     const std::string& sz_Message) {
+    middlewares::PbwpReply str_Reply;
+    str_Reply.enm_Type      = middlewares::PbwpReplyType::RPL_ERROR;
+    str_Reply.u8_Status     = static_cast<uint8_t>(int_Status);
+    str_Reply.u32_RequestId = u32_RequestId;
+    str_Reply.sz_Payload    = sz_Message;
+    return str_Reply;
+}
+
+}  // namespace
+
 // ================================================================================================
 // GLOBAL SCOPE
 // ================================================================================================
-Reply CDE_ExecuteCommand(const Command& str_Command, applications::KvStore& obj_Store) {
-    switch (str_Command.enm_Type) {
-        case CommandType::CMD_PING:
-            LOG_INF("PING");
-            return Reply{ReplyType::REPLY_PONG, "", 0};
-        case CommandType::CMD_SET: {
-            for (size_t siz_Idx = 0; siz_Idx < str_Command.vec_Args.size(); siz_Idx += 2) {
-                const std::string& sz_Key = str_Command.vec_Args[siz_Idx];
-                const std::string& sz_Val = str_Command.vec_Args[siz_Idx + 1];
-                obj_Store.set(sz_Key, sz_Val);
+middlewares::PbwpReply CDE_ExecuteCommand(const middlewares::PbwpRequest& str_Request,
+                                          applications::KvStore&          obj_Store) {
+    const uint32_t u32_Id = str_Request.u32_RequestId;
 
-                LOG_INF("SET '%s' (%zu bytes)", sz_Key.c_str(), sz_Val.size());
-
-                const size_t siz_Shown = std::min(sz_Val.size(), CDE_LOG_VALUE_PREVIEW);
-                LOG_DBG("SET '%s' = '%.*s'%s", sz_Key.c_str(), static_cast<int>(siz_Shown),
-                        sz_Val.c_str(), (sz_Val.size() > siz_Shown) ? "..." : "");
-            }
-            return Reply{ReplyType::REPLY_OK, "", 0};
-        }
-        case CommandType::CMD_GET: {
-            const std::string&               sz_Key    = str_Command.vec_Args[0];
-            const std::optional<std::string> opt_Value = obj_Store.get(sz_Key);
-            if (!opt_Value.has_value()) {
-                LOG_INF("GET '%s': not found", sz_Key.c_str());
-                return Reply{ReplyType::REPLY_NIL, "", 0};
-            }
-            const std::string& sz_Value = opt_Value.value();
-            LOG_INF("GET '%s': found (%zu bytes)", sz_Key.c_str(), sz_Value.size());
-
-            const size_t siz_Shown = std::min(sz_Value.size(), CDE_LOG_VALUE_PREVIEW);
-            LOG_DBG("GET '%s' = '%.*s'%s", sz_Key.c_str(), static_cast<int>(siz_Shown),
-                    sz_Value.c_str(), (sz_Value.size() > siz_Shown) ? "..." : "");
-            return Reply{ReplyType::REPLY_VALUE, sz_Value, 0};
-        }
-        case CommandType::CMD_DEL: {
-            const std::string& sz_Key      = str_Command.vec_Args[0];
-            const bool         bol_Removed = obj_Store.remove(sz_Key);
-            LOG_INF("DEL '%s': %s", sz_Key.c_str(), bol_Removed ? "removed" : "not found");
-            /* Return the number of keys removed */
-            return Reply{ReplyType::REPLY_INTEGER, "", bol_Removed ? 1 : 0};
-        }
-        default:
-            /* Unknown command type */
-            break;
+    std::string sz_Error;
+    const int   int_Ret = cde_validateRequest(str_Request, &sz_Error);
+    if (int_Ret < 0) {
+        LOG_DBG("rejected %s request %u: %s", cde_getOpcodeString(str_Request.enm_Opcode), u32_Id,
+                sz_Error.c_str());
+        return cde_makeError(u32_Id, -int_Ret, sz_Error);
     }
-    LOG_ERR("unknown command type %d", static_cast<int>(str_Command.enm_Type));
-    return Reply{ReplyType::REPLY_ERROR, "internal error: unknown command", 0};
+
+    middlewares::PbwpReply str_Reply;
+    str_Reply.u32_RequestId = u32_Id;
+
+    switch (str_Request.enm_Opcode) {}
 }
 
 }  // namespace pumpkin::services

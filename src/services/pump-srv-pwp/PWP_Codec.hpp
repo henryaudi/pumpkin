@@ -25,8 +25,8 @@
 #include <optional>
 #include <string>
 
-#include "services/pump-srv-pwp/PWP_Command.hpp"
-#include "services/pump-srv-pwp/PWP_Reply.hpp"
+#include "services/pump-srv-cde/CDE_Command.hpp"
+#include "services/pump-srv-cde/CDE_Reply.hpp"
 
 namespace pumpkin::services {
 

@@ -22,7 +22,11 @@
 
 #include <cctype>
 #include <string>
+#include <utility>
 #include <vector>
+
+#include "middlewares/pump-mid-pbwp/PBWP_Message.hpp"
+#include "services/pump-srv-pwp/PWP_Protocol.hpp"
 
 namespace pumpkin::services {
 
@@ -107,19 +111,19 @@ ParseResult pwp_makeError(const std::string& sz_Message) {
     return str_Result;
 }
 
-/**
- * @brief Creates a ParseResult object with a command
- *
- * @param enm_Type The type of the command.
- * @param vec_Args The arguments associated with the command.
- *
- * @return A ParseResult object with the command set.
- */
-ParseResult pwp_makeCommand(CommandType enm_Type, const std::vector<std::string>& vec_Args) {
-    ParseResult str_Res;
-    str_Res.opt_Command = Command{enm_Type, vec_Args};
-    return str_Res;
-}
+// /**
+//  * @brief Creates a ParseResult object with a command
+//  *
+//  * @param enm_Type The type of the command.
+//  * @param vec_Args The arguments associated with the command.
+//  *
+//  * @return A ParseResult object with the command set.
+//  */
+// ParseResult pwp_makeCommand(CommandType enm_Type, const std::vector<std::string>& vec_Args) {
+//     ParseResult str_Res;
+//     str_Res.opt_Command = Command{enm_Type, vec_Args};
+//     return str_Res;
+// }
 }  // namespace
 
 // ================================================================================================
@@ -150,36 +154,33 @@ ParseResult PWP_ParseLine(const std::string& sz_Line) {
         return pwp_makeError("Empty command");
     }
 
-    /* Split the rest of the line into words */
-    std::vector<std::string> vec_Args;
-    while (!sz_Tmp.empty()) {
-        vec_Args.push_back(pwp_popNextWord(sz_Tmp));
-    }
-    const size_t siz_ArgCount = vec_Args.size();
+    middlewares::PbwpRequest str_Request;
 
+    /* Extract the Op code */
     if (sz_Word == "PING") {
-        if (siz_ArgCount != 0) {
-            return pwp_makeError("PING takes no arguments");
-        }
-        return pwp_makeCommand(CommandType::CMD_PING, vec_Args);
-    }
-    if (sz_Word == "GET" || sz_Word == "DEL") {
-        if (siz_ArgCount != 1) {
-            return pwp_makeError(sz_Word + " takes exactly one argument.");
-        }
-
-        const CommandType enm_Type =
-            (sz_Word == "GET") ? CommandType::CMD_GET : CommandType::CMD_DEL;
-        return pwp_makeCommand(enm_Type, vec_Args);
-    }
-    if (sz_Word == "SET") {
-        if (siz_ArgCount == 0 || siz_ArgCount % 2 != 0) {
-            return pwp_makeError("SET takes key value pairs");
-        }
-        return pwp_makeCommand(CommandType::CMD_SET, vec_Args);
+        str_Request.enm_Opcode = middlewares::PbwpOpcode::OP_PING;
+    } else if (sz_Word == "GET") {
+        str_Request.enm_Opcode = middlewares::PbwpOpcode::OP_GET;
+    } else if (sz_Word == "SET") {
+        str_Request.enm_Opcode = middlewares::PbwpOpcode::OP_SET;
+    } else if (sz_Word == "DEL") {
+        str_Request.enm_Opcode = middlewares::PbwpOpcode::OP_DEL;
+    } else {
+        return pwp_makeError("Unknown command: '" + sz_Word + "'");
     }
 
-    return pwp_makeError("Unknown command: '" + sz_Word + "'");
+    /* Extract the arguments */
+    while (!sz_Tmp.empty()) {
+        str_Request.vec_Args.push_back(pwp_popNextWord(sz_Tmp));
+    }
+
+    ParseResult str_Result;
+    Command     str_Command;
+    if (PWP_RequestToCommand(&str_Request, &str_Command, &str_Result.sz_Error) == P_OK) {
+        str_Result.opt_Command = std::move(str_Command);
+    }
+
+    return str_Result;
 }
 
 std::string PWP_EncodeReply(const Reply& str_Reply) {
