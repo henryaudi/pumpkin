@@ -29,14 +29,14 @@ target_link_libraries(pump-app-eng-tests PRIVATE
     GTest::gtest_main)
 gtest_discover_tests(pump-app-eng-tests)
 
-# ---- pump-mid-pwp ----
-add_executable(pump-mid-pwp-tests
-    middlewares/pump-mid-pwp/PWP_CodecTest.cpp)
-target_link_libraries(pump-mid-pwp-tests PRIVATE
-    pump::mid-pwp
+# ---- pump-srv-pwp ----
+add_executable(pump-srv-pwp-tests
+    services/pump-srv-pwp/PWP_CodecTest.cpp)
+target_link_libraries(pump-srv-pwp-tests PRIVATE
+    pump::srv-pwp
     pumpkin::warnings
     GTest::gtest_main)
-gtest_discover_tests(pump-mid-pwp-tests)
+gtest_discover_tests(pump-srv-pwp-tests)
 
 # ---- pump-mid-pbwp ----
 add_executable(pump-mid-pbwp-tests
@@ -47,14 +47,14 @@ target_link_libraries(pump-mid-pbwp-tests PRIVATE
     GTest::gtest_main)
 gtest_discover_tests(pump-mid-pbwp-tests)
 
-# ---- pump-mid-cde ----
-add_executable(pump-mid-cde-tests
-    middlewares/pump-mid-cde/CDE_DispatcherTest.cpp)
-target_link_libraries(pump-mid-cde-tests PRIVATE
-    pump::mid-cde
+# ---- pump-srv-cde ----
+add_executable(pump-srv-cde-tests
+    services/pump-srv-cde/CDE_DispatcherTest.cpp)
+target_link_libraries(pump-srv-cde-tests PRIVATE
+    pump::srv-cde
     pumpkin::warnings
     GTest::gtest_main)
-gtest_discover_tests(pump-mid-cde-tests)
+gtest_discover_tests(pump-srv-cde-tests)
 
 # ---- pump-srv-net (real TCP on 127.0.0.1) ----
 add_executable(pump-srv-net-tests

@@ -16,7 +16,7 @@
  ******************************************************************************
  */
 
-#include "middlewares/pump-mid-cde/CDE_Dispatcher.hpp"
+#include "services/pump-srv-cde/CDE_Dispatcher.hpp"
 
 #include <gtest/gtest.h>
 
@@ -24,7 +24,7 @@
 
 #include "common/pump-cmn-log/LOG_Logger.hpp"
 
-namespace pumpkin::middlewares {
+namespace pumpkin::services {
 namespace {
 
 TEST(ProcessLine, PingReturnsPong) {
@@ -98,4 +98,4 @@ TEST(ProcessLine, ValuesAreNotLoggedAtInfo) {
 }
 
 }  // namespace
-}  // namespace pumpkin::middlewares
+}  // namespace pumpkin::services

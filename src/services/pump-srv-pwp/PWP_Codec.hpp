@@ -25,10 +25,10 @@
 #include <optional>
 #include <string>
 
-#include "middlewares/pump-mid-pwp/PWP_Command.hpp"
-#include "middlewares/pump-mid-pwp/PWP_Reply.hpp"
+#include "services/pump-srv-pwp/PWP_Command.hpp"
+#include "services/pump-srv-pwp/PWP_Reply.hpp"
 
-namespace pumpkin::middlewares {
+namespace pumpkin::services {
 
 /* Longest line accepted in bytes. Longer inputs would result in connection closure */
 constexpr size_t PWP_MAX_LINE_LENGTH = 64 * 1024;
@@ -72,6 +72,6 @@ ParseResult PWP_ParseLine(const std::string& sz_Line);
  */
 std::string PWP_EncodeReply(const Reply& str_Reply);
 
-}  // namespace pumpkin::middlewares
+}  // namespace pumpkin::services
 
 #endif  // PUMPKIN_PWP_CODEC_HPP_

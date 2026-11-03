@@ -18,7 +18,7 @@
  ******************************************************************************
  */
 
-#include "middlewares/pump-mid-pwp/PWP_Codec.hpp"
+#include "services/pump-srv-pwp/PWP_Codec.hpp"
 
 #include <gtest/gtest.h>
 
@@ -26,7 +26,7 @@
 #include <string>
 #include <vector>
 
-namespace pumpkin::middlewares {
+namespace pumpkin::services {
 namespace {
 
 TEST(ExtractLine, ReturnsNothingWithoutNewline) {
@@ -148,4 +148,4 @@ TEST(EncodeReply, EncodesEveryReplyType) {
 }
 
 }  // namespace
-}  // namespace pumpkin::middlewares
+}  // namespace pumpkin::services

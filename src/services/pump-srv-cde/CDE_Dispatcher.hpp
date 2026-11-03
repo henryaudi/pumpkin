@@ -22,10 +22,10 @@
 #include <string>
 
 #include "applications/pump-app-eng/ENG_KvStore.hpp"
-#include "middlewares/pump-mid-cde/CDE_Command.hpp"
-#include "middlewares/pump-mid-cde/CDE_Reply.hpp"
+#include "services/pump-srv-cde/CDE_Command.hpp"
+#include "services/pump-srv-cde/CDE_Reply.hpp"
 
-namespace pumpkin::middlewares {
+namespace pumpkin::services {
 
 /**
  * @brief Runs one command against a store.
@@ -37,6 +37,6 @@ namespace pumpkin::middlewares {
  */
 Reply CDE_ExecuteCommand(const Command& str_Command, applications::KvStore& obj_Store);
 
-}  // namespace pumpkin::middlewares
+}  // namespace pumpkin::services
 
 #endif  // PUMPKIN_CDE_DISPATCHER_HPP_

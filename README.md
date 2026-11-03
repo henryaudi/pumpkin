@@ -66,9 +66,9 @@ through pull requests; `dev` → `stage` → `prod`.
 apps/pumpkin-server/        the server executable (wiring only)
 src/common/                 pump-cmn-log (logging), pump-cmn-stat (status codes)
 src/applications/           pump-app-eng (the key-value store)
-src/middlewares/            pump-mid-pwp (text protocol), pump-mid-pbwp (binary protocol),
-                            pump-mid-cde (command dispatch)
-src/services/               pump-srv-net (TCP server and sockets)
+src/middlewares/            pump-mid-pbwp (binary protocol framing)
+src/services/               pump-srv-net (TCP server and sockets), pump-srv-pwp (wire protocol),
+                            pump-srv-cde (command dispatch), pump-srv-cms (configuration)
 tests/                      unit and integration tests, mirroring src/
 ```
 

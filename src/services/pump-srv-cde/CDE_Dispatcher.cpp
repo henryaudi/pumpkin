@@ -17,7 +17,7 @@
  ******************************************************************************
  */
 
-#include "middlewares/pump-mid-cde/CDE_Dispatcher.hpp"
+#include "services/pump-srv-cde/CDE_Dispatcher.hpp"
 
 #include <algorithm>
 #include <cstddef>
@@ -38,7 +38,7 @@ constexpr size_t CDE_LOG_VALUE_PREVIEW = 32;
 
 }  // namespace
 
-namespace pumpkin::middlewares {
+namespace pumpkin::services {
 
 // ================================================================================================
 // GLOBAL SCOPE
@@ -92,4 +92,4 @@ Reply CDE_ExecuteCommand(const Command& str_Command, applications::KvStore& obj_
     return Reply{ReplyType::REPLY_ERROR, "internal error: unknown command", 0};
 }
 
-}  // namespace pumpkin::middlewares
+}  // namespace pumpkin::services

@@ -12,5 +12,6 @@ target_link_libraries(pump-srv-net
     PRIVATE
         pump::cmn-log
         pump::cmn-stat
-        pump::mid-cde
+        pump::srv-cde
+        pump::srv-pwp
         pumpkin::warnings)

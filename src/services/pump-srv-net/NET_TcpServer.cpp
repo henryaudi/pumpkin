@@ -32,8 +32,8 @@
 
 #include "common/pump-cmn-log/LOG_Logger.hpp"
 #include "common/pump-cmn-stat/STAT_Status.hpp"
-#include "middlewares/pump-mid-cde/CDE_Dispatcher.hpp"
-#include "middlewares/pump-mid-pwp/PWP_Codec.hpp"
+#include "services/pump-srv-cde/CDE_Dispatcher.hpp"
+#include "services/pump-srv-pwp/PWP_Codec.hpp"
 
 LOG_MODULE_REGISTER(NET, LOG_LEVEL_DBG)
 
@@ -303,12 +303,12 @@ int TcpServer::readFrom(int fd_Client, Connection& str_Connection) {
             ? str_Connection.sz_ReadBuffer.size()
             : str_Connection.sz_ReadBuffer.size() - (siz_LastNewLineIdx + 1);
 
-    if (siz_Unfinished > middlewares::PWP_MAX_LINE_LENGTH) {
+    if (siz_Unfinished > PWP_MAX_LINE_LENGTH) {
         LOG_WRN("client fd %d: line longer than %zu bytes, closing", fd_Client,
-                middlewares::PWP_MAX_LINE_LENGTH);
+                PWP_MAX_LINE_LENGTH);
         str_Connection.sz_ReadBuffer.clear();
-        str_Connection.sz_WriteBuffer += middlewares::PWP_EncodeReply(
-            middlewares::Reply{middlewares::ReplyType::REPLY_ERROR, "line too long", 0});
+        str_Connection.sz_WriteBuffer +=
+            PWP_EncodeReply(Reply{ReplyType::REPLY_ERROR, "line too long", 0});
         str_Connection.bol_CloseAfterWrite = true;
     }
 
@@ -338,13 +338,11 @@ void TcpServer::processPendingLines(Connection& str_Connection) {
     /* Answer complete lines until no line is left, or until the unsent replies reach the limit.
        Lines not answered yet stay in sz_ReadBuffer until writeTo() free space. */
     while (str_Connection.sz_WriteBuffer.size() < NET_MAX_WRITE_BUFFER) {
-        const std::optional<std::string> opt_Line =
-            middlewares::PWP_ExtractLine(str_Connection.sz_ReadBuffer);
+        const std::optional<std::string> opt_Line = PWP_ExtractLine(str_Connection.sz_ReadBuffer);
         if (!opt_Line.has_value()) {
             return;
         }
-        str_Connection.sz_WriteBuffer +=
-            middlewares::CDE_ProcessLine(opt_Line.value(), m_obj_store);
+        str_Connection.sz_WriteBuffer += CDE_ProcessLine(opt_Line.value(), m_obj_store);
     }
 }
 

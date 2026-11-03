@@ -37,7 +37,7 @@
 
 #include "common/pump-cmn-log/LOG_Logger.hpp"
 #include "common/pump-cmn-stat/STAT_Status.hpp"
-#include "middlewares/pump-mid-pwp/PWP_Codec.hpp"
+#include "services/pump-srv-pwp/PWP_Codec.hpp"
 
 namespace pumpkin::services {
 namespace {
@@ -261,7 +261,7 @@ TEST_F(TcpServerTest, TooLongLineGetsErrorThenCloses) {
     ASSERT_NE(fd_Client, -1);
 
     /* One "line" longer than the limit, with no newline */
-    const std::string sz_Huge(middlewares::PWP_MAX_LINE_LENGTH + 1, 'A');
+    const std::string sz_Huge(PWP_MAX_LINE_LENGTH + 1, 'A');
     net_sendAll(fd_Client, sz_Huge);
 
     EXPECT_EQ(net_readLines(fd_Client, 1), "ERR line too long\n");

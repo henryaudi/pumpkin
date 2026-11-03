@@ -18,13 +18,13 @@
  ******************************************************************************
  */
 
-#include "middlewares/pump-mid-pwp/PWP_Codec.hpp"
+#include "services/pump-srv-pwp/PWP_Codec.hpp"
 
 #include <cctype>
 #include <string>
 #include <vector>
 
-namespace pumpkin::middlewares {
+namespace pumpkin::services {
 
 namespace {
 // ================================================================================================
@@ -200,4 +200,4 @@ std::string PWP_EncodeReply(const Reply& str_Reply) {
     return "ERR internal error\n";
 }
 
-}  // namespace pumpkin::middlewares
+}  // namespace pumpkin::services
