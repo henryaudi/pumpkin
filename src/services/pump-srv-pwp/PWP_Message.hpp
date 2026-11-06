@@ -7,8 +7,8 @@
  *           + PwpOpcode / PwpReplyType: request and reply kinds
  *           + PwpRequest / PwpReply: one request from a client, one reply to it
  *           + PWP_MAX_KEY_SIZE
- *          The same messages travel as text lines or as PBWP frames; see PWP_Codec.hpp (text)
- *          and PWP_Binary.hpp (frames).
+ *          The same messages travel as text lines or as PBWP frames; PWP_Codec.hpp encodes and
+ *          decodes both.
  ******************************************************************************
  * @attention
  *
@@ -63,8 +63,8 @@ inline constexpr size_t PWP_MAX_KEY_SIZE = 64 * 1024;  // 64 KiB
 enum class PwpOpcode : uint8_t {
     OP_INVALID = 0x00,
     OP_PING    = 0x01,
-    OP_SET     = 0x02,
-    OP_GET     = 0x03,
+    OP_GET     = 0x02,
+    OP_SET     = 0x03,
     OP_DEL     = 0x04,
 };
 
@@ -77,24 +77,27 @@ enum class PwpReplyType : uint8_t {
     RPL_NIL     = 0x02,  // no payload
     RPL_INTEGER = 0x03,  // payload: 8-byte signed integer
     RPL_ERROR   = 0x04,  // payload: u8 status (P_E* code), then the error message text
-    RPL_PONG    = 0x05,  // no payload
+    RPL_PONG    = 0x05,  // no payload; the reply to OP_PING
 };
 
 /**
  * @brief One request from a client. Text requests have request id 0.
  */
 struct PwpRequest {
-    PwpOpcode                enp_Opcode    = PwpOpcode::OP_INVALID;
+    PwpOpcode                enm_Opcode    = PwpOpcode::OP_INVALID;
     uint32_t                 u32_RequestId = 0;
     std::vector<std::string> vec_Args;
 };
 
+/**
+ * @brief One reply to a request; u32_RequestId is copied from the request.
+ */
 struct PwpReply {
     PwpReplyType enm_Type      = PwpReplyType::RPL_OK;
-    uint8_t      u8_Status     = 0;
+    uint8_t      u8_Status     = 0;  // P_E* code for RPL_ERROR, P_OK otherwise
     uint32_t     u32_RequestId = 0;
-    std::string  sz_Payload;
-    int64_t      s64_Integer = 0;
+    std::string  sz_Payload;       // value for RPL_VALUE, message for RPL_ERROR
+    int64_t      s64_Integer = 0;  // RPL_INTEGER
 };
 
 }  // namespace pumpkin::services

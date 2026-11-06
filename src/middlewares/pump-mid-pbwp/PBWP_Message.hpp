@@ -47,7 +47,7 @@ namespace pumpkin::middlewares {
    describes what PWP puts there.
 */
 
-/* NOTE: For future design changes, the magic byte must be greater than all opcodes */
+/* NOTE: For future design changes, the magic byte must be greater than all type values */
 inline constexpr uint8_t PBWP_MAGIC            = 0xB1;
 inline constexpr uint8_t PBWP_VERSION          = 1;
 inline constexpr size_t  PBWP_HEADER_SIZE      = 12;                // 12 Byte

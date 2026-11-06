@@ -51,33 +51,33 @@ constexpr size_t PBWP_OFFSET_PAYLOAD_LEN = 8;
 
 // ---- Little-endian integers ---------------------------------------------------------------------
 
-void PBWP_PutLe16(uint8_t* ptr_Dest, uint16_t u16_Value) {
-    ptr_Dest[0] = static_cast<uint8_t>(u16_Value & 0xFF);
-    ptr_Dest[1] = static_cast<uint8_t>((u16_Value >> 8) & 0xFF);
+void PBWP_PutLe16(uint8_t* ptr_Dst, uint16_t u16_Value) {
+    ptr_Dst[0] = static_cast<uint8_t>(u16_Value & 0xFF);
+    ptr_Dst[1] = static_cast<uint8_t>((u16_Value >> 8) & 0xFF);
 }
 
-void PBWP_PutLe32(uint8_t* ptr_Dest, uint32_t u32_Value) {
-    PBWP_PutLe16(ptr_Dest, static_cast<uint16_t>(u32_Value & 0xFFFF));
-    PBWP_PutLe16(ptr_Dest + 2, static_cast<uint16_t>((u32_Value >> 16) & 0xFFFF));
+void PBWP_PutLe32(uint8_t* ptr_Dst, uint32_t u32_Value) {
+    PBWP_PutLe16(ptr_Dst, static_cast<uint16_t>(u32_Value & 0xFFFF));
+    PBWP_PutLe16(ptr_Dst + 2, static_cast<uint16_t>((u32_Value >> 16) & 0xFFFF));
 }
 
-void PBWP_PutLe64(uint8_t* ptr_Dest, uint64_t u64_Value) {
-    PBWP_PutLe32(ptr_Dest, static_cast<uint32_t>(u64_Value & 0xFFFFFFFF));
-    PBWP_PutLe32(ptr_Dest + 4, static_cast<uint32_t>((u64_Value >> 32) & 0xFFFFFFFF));
+void PBWP_PutLe64(uint8_t* ptr_Dst, uint64_t u64_Value) {
+    PBWP_PutLe32(ptr_Dst, static_cast<uint32_t>(u64_Value & 0xFFFFFFFF));
+    PBWP_PutLe32(ptr_Dst + 4, static_cast<uint32_t>((u64_Value >> 32) & 0xFFFFFFFF));
 }
 
-uint16_t PBWP_GetLe16(const uint8_t* ptr_In) {
-    return static_cast<uint16_t>((ptr_In[1] << 8) | ptr_In[0]);
+uint16_t PBWP_GetLe16(const uint8_t* ptr_Src) {
+    return static_cast<uint16_t>((ptr_Src[1] << 8) | ptr_Src[0]);
 }
 
-uint32_t PBWP_GetLe32(const uint8_t* ptr_In) {
-    return (static_cast<uint32_t>(PBWP_GetLe16(ptr_In + 2)) << 16) |
-           (static_cast<uint32_t>(PBWP_GetLe16(ptr_In)));
+uint32_t PBWP_GetLe32(const uint8_t* ptr_Src) {
+    return (static_cast<uint32_t>(PBWP_GetLe16(ptr_Src + 2)) << 16) |
+           (static_cast<uint32_t>(PBWP_GetLe16(ptr_Src)));
 }
 
-uint64_t PBWP_GetLe64(const uint8_t* ptr_In) {
-    return (static_cast<uint64_t>(PBWP_GetLe32(ptr_In + 4)) << 32) |
-           (static_cast<uint64_t>(PBWP_GetLe32(ptr_In)));
+uint64_t PBWP_GetLe64(const uint8_t* ptr_Src) {
+    return (static_cast<uint64_t>(PBWP_GetLe32(ptr_Src + 4)) << 32) |
+           (static_cast<uint64_t>(PBWP_GetLe32(ptr_Src)));
 }
 
 // ---- Single header fields ----------------------------------------------------------------------
@@ -180,14 +180,14 @@ int PBWP_SetHeader(uint8_t* ptr_Dst, size_t siz_Capacity, uint8_t u8_Type, uint8
     }
     if constexpr (PBWP_VERSION < 2) {
         if (u8_Flags != 0) {
-            return -P_EINVARG;  // Version 1 stabs flags to 0
+            return -P_EINVARG;  // Flags are reserved (must be 0) in version 1
         }
     }
 
-    ptr_Dst[PBWP_OFFSET_MAGIC] = PBWP_MAGIC;
+    ptr_Dst[PBWP_OFFSET_MAGIC]   = PBWP_MAGIC;
     ptr_Dst[PBWP_OFFSET_VERSION] = PBWP_VERSION;
-    ptr_Dst[PBWP_OFFSET_TYPE] = u8_Type;
-    ptr_Dst[PBWP_OFFSET_FLAGS] = u8_Flags;
+    ptr_Dst[PBWP_OFFSET_TYPE]    = u8_Type;
+    ptr_Dst[PBWP_OFFSET_FLAGS]   = u8_Flags;
     PBWP_PutLe32(ptr_Dst + PBWP_OFFSET_REQ_ID, u32_RequestId);
     PBWP_PutLe32(ptr_Dst + PBWP_OFFSET_PAYLOAD_LEN, u32_PayloadLength);
     return static_cast<int>(PBWP_HEADER_SIZE);

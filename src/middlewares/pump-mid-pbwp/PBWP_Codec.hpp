@@ -24,14 +24,13 @@
 #define PUMPKIN_PBWP_CODEC_HPP_
 
 #include <cstdint>
-#include <string>
 
 #include "middlewares/pump-mid-pbwp/PBWP_Message.hpp"
 
 namespace pumpkin::middlewares {
 
 /**
- * @brief Validates the header at ptr_In[0] and whether the whole frame has arrived.
+ * @brief Validates the header at ptr_Src[0] and whether the whole frame has arrived.
  *
  * @details Checks magic, version, flags (all must be 0 in version 1) and the payload limit. Does
  *          not look inside the payload. The buffer is not modified.
@@ -59,7 +58,7 @@ int PBWP_ValidateFrame(const uint8_t* ptr_Src, size_t siz_Length);
 int PBWP_GetHeader(const uint8_t* ptr_Src, size_t siz_Length, PbwpHeader* ptr_Header);
 
 /**
- * @brief Writes a 12-byte header at ptr_Out[0..11]: PBWP_MAGIC, PBWP_VERSION and the given
+ * @brief Writes a 12-byte header at ptr_Dst[0..11]: PBWP_MAGIC, PBWP_VERSION and the given
  *        fields. The caller writes the u32_PayloadLength payload bytes right after it.
  *
  * @param ptr_Dst           Where the frame starts.
@@ -86,12 +85,12 @@ uint32_t       PBWP_GetPayloadLength(const uint8_t* ptr_Frame);
 const uint8_t* PBWP_GetPayload(const uint8_t* ptr_Frame);  // first byte after the header
 
 // ---- Little-endian integers: the caller checks the bytes are there ------------------------------
-void     PBWP_PutLe16(uint8_t* ptr_Dest, uint16_t u16_Value);
-void     PBWP_PutLe32(uint8_t* ptr_Dest, uint32_t u32_Value);
-void     PBWP_PutLe64(uint8_t* ptr_Dest, uint64_t u64_Value);
-uint16_t PBWP_GetLe16(const uint8_t* ptr_In);
-uint32_t PBWP_GetLe32(const uint8_t* ptr_In);
-uint64_t PBWP_GetLe64(const uint8_t* ptr_In);
+void     PBWP_PutLe16(uint8_t* ptr_Dst, uint16_t u16_Value);
+void     PBWP_PutLe32(uint8_t* ptr_Dst, uint32_t u32_Value);
+void     PBWP_PutLe64(uint8_t* ptr_Dst, uint64_t u64_Value);
+uint16_t PBWP_GetLe16(const uint8_t* ptr_Src);
+uint32_t PBWP_GetLe32(const uint8_t* ptr_Src);
+uint64_t PBWP_GetLe64(const uint8_t* ptr_Src);
 
 }  // namespace pumpkin::middlewares
 
