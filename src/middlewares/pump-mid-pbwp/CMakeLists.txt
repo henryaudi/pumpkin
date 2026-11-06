@@ -1,4 +1,4 @@
-# ---- pump-mid-pbwp: Pumpkin Binary Wire Protocol (frame encode/decode) ----   # 
+# ---- pump-mid-pbwp: Pumpkin Binary Wire Protocol (frame header access) ----
 add_library(pump-mid-pbwp STATIC
     PBWP_Codec.cpp)
 add_library(pump::mid-pbwp ALIAS pump-mid-pbwp)
