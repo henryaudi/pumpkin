@@ -4,9 +4,8 @@
  * @author  Shangjie Zheng
  * @brief   Pumpkin Wire Protocol (PWP) codec: public interface.
  *          This file declares functions to:
- *           + Extract complete lines from received bytes
- *           + Parse a line into a Command
- *           + Encode a Reply into text sent to the client
+ *           + Text:   extract lines, parse a line into a PwpRequest, encode a PwpReply as text
+ *           + Binary: encode / decode PwpRequest and PwpReply as PBWP frames
  ******************************************************************************
  * @attention
  *
@@ -52,14 +51,15 @@ struct ParseResult {
 std::optional<std::string> PWP_ExtractLine(std::string& sz_Buffer);
 
 /**
- * @brief Parses one line into a command.
+ * @brief Parses one line into a request.
  *
- * @details Command names are case-insensitive. Words are separated by spaces or tabs or carriage
- *          returns; keys and values are single words. SET takes one or more key value pairs.
+ * @details Request names are case-insensitive. Words are separated by spaces or tabs or carriage
+ *          returns; keys and values are single words. Only the request name is checked here;
+ *          argument counts and key sizes are checked by CDE. The request id is 0.
  *
  * @param sz_Line One line, without its line ending.
  *
- * @return The command, or an error message describing what is wrong with the line.
+ * @return The request, or an error for an empty line or an unknown request name.
  */
 ParseResult PWP_ParseLine(const std::string& sz_Line);
 

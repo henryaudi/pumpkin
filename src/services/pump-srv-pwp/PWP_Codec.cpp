@@ -4,9 +4,8 @@
  * @author  Shangjie Zheng
  * @brief   Pumpkin Wire Protocol (PWP) codec.
  *          This file provides functions to:
- *           + Extract complete lines from received bytes
- *           + Parse a line into a Command
- *           + Encode a Reply into text sent to the client
+ *           + Text:   extract lines, parse a line into a PwpRequest, encode a PwpReply as text
+ *           + Binary: encode / decode PwpRequest and PwpReply as PBWP frames
  ******************************************************************************
  * @attention
  *
@@ -123,7 +122,9 @@ ParseResult pwp_makeError(const std::string& sz_Message) {
  * @param ptr_Dst The destination buffer for the encoded frame.
  * @param siz_Capacity The capacity of the destination buffer.
  *
- * @return 0 if the output is valid, a negative error code otherwise.
+ * @return P_OK (0) if encoding may go ahead. Otherwise the value the encoder must return: the frame
+ *         size for a size query (> 0), -P_EINVARG for a NULL buffer, -P_ERANGE if it doesn't fit.
+ *         Callers must therefore test for != 0, not < 0.
  */
 int pwp_checkOutput(size_t siz_FrameSize, const uint8_t* ptr_Dst, size_t siz_Capacity) {
     if (ptr_Dst == nullptr) {
@@ -161,25 +162,25 @@ std::optional<std::string> PWP_ExtractLine(std::string& sz_Buffer) {
 ParseResult PWP_ParseLine(const std::string& sz_Line) {
     std::string sz_Tmp = pwp_trim(sz_Line);
 
-    /* Extract the first word (command) */
-    const std::string sz_Cmd = pwp_toUpper(pwp_popNextWord(sz_Tmp));
-    if (sz_Cmd.empty()) {
+    /* Extract the first word (the request name) */
+    const std::string sz_Name = pwp_toUpper(pwp_popNextWord(sz_Tmp));
+    if (sz_Name.empty()) {
         return pwp_makeError("Empty request");
     }
 
     PwpRequest str_Request;
 
-    /* Map the command word to op code */
-    if (sz_Cmd == "PING") {
+    /* Map the request name to its opcode */
+    if (sz_Name == "PING") {
         str_Request.enm_Opcode = PwpOpcode::OP_PING;
-    } else if (sz_Cmd == "GET") {
+    } else if (sz_Name == "GET") {
         str_Request.enm_Opcode = PwpOpcode::OP_GET;
-    } else if (sz_Cmd == "SET") {
+    } else if (sz_Name == "SET") {
         str_Request.enm_Opcode = PwpOpcode::OP_SET;
-    } else if (sz_Cmd == "DEL") {
+    } else if (sz_Name == "DEL") {
         str_Request.enm_Opcode = PwpOpcode::OP_DEL;
     } else {
-        return pwp_makeError("Unknown request: '" + sz_Cmd + "'");
+        return pwp_makeError("Unknown request: '" + sz_Name + "'");
     }
 
     /* Extract args */
@@ -292,17 +293,17 @@ int PWP_DecodeRequestFrame(const uint8_t* ptr_Src, size_t siz_Length, PwpRequest
 
     std::vector<std::string> vec_Args;
     vec_Args.reserve(u16_ArgCount);
-    for (uint16_t i = 0; i < u16_ArgCount; i++) {
+    for (uint16_t u16_Idx = 0; u16_Idx < u16_ArgCount; u16_Idx++) {
         if (siz_End - siz_Pos < sizeof(uint32_t)) {  // arg size + arg requires at least 4 bytes
             LOG_WRN("request %u: argument %u has hit the end of the payload and beyond",
-                    str_Header.u32_RequestId, static_cast<unsigned>(i));
+                    str_Header.u32_RequestId, static_cast<unsigned>(u16_Idx));
             return -P_EINVARG;
         }
         const uint32_t u32_ArgLength = middlewares::PBWP_GetLe32(ptr_Payload + siz_Pos);
         siz_Pos += sizeof(uint32_t);
         if (siz_End - siz_Pos < u32_ArgLength) {  // Hmm, someone is lying
             LOG_WRN("request %u: argument %u claims %u bytes, only %zu left",
-                    str_Header.u32_RequestId, static_cast<unsigned>(i), u32_ArgLength,
+                    str_Header.u32_RequestId, static_cast<unsigned>(u16_Idx), u32_ArgLength,
                     siz_End - siz_Pos);
             return -P_EINVARG;
         }
