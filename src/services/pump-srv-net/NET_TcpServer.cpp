@@ -6,7 +6,7 @@
  *          This file provides functions to:
  *           + Open a listening socket on 127.0.0.1
  *           + Accept clients and read/write their bytes
- *           + Hand each complete line to the Command Dispatch Engine
+ *           + Hand each complete line to PWP and CDE (moves to PDO later)
  ******************************************************************************
  * @attention
  *
@@ -93,7 +93,7 @@ int TcpServer::run() {
             int               int_Events     = 0;
 
             /* If unsent replies are below the limit, ask poll() to notify us when the client sends
-               more commands. Otherwise stop reading until it catches up (backpressure) */
+               more requests. Otherwise stop reading until it catches up (backpressure) */
             if (!str_Connection.bol_PeerClosed && !str_Connection.bol_CloseAfterWrite &&
                 str_Connection.sz_WriteBuffer.size() < NET_MAX_WRITE_BUFFER) {
                 int_Events |= POLLIN;
@@ -307,8 +307,12 @@ int TcpServer::readFrom(int fd_Client, Connection& str_Connection) {
         LOG_WRN("client fd %d: line longer than %zu bytes, closing", fd_Client,
                 PWP_MAX_LINE_LENGTH);
         str_Connection.sz_ReadBuffer.clear();
-        str_Connection.sz_WriteBuffer +=
-            PWP_EncodeReply(Reply{ReplyType::REPLY_ERROR, "line too long", 0});
+
+        PwpReply str_TooLong;
+        str_TooLong.enm_Type   = PwpReplyType::RPL_ERROR;
+        str_TooLong.u8_Status  = static_cast<uint8_t>(P_ERANGE);
+        str_TooLong.sz_Payload = "line too long";
+        str_Connection.sz_WriteBuffer += PWP_EncodeReply(str_TooLong);
         str_Connection.bol_CloseAfterWrite = true;
     }
 
@@ -327,7 +331,7 @@ int TcpServer::writeTo(Connection& str_Connection) {
     /* Drop what was sent, keep the rest */
     str_Connection.sz_WriteBuffer.erase(0, siz_NumBytesSent);
 
-    /* send() freed space in the write buffer: run any commands still pending in the read buffer and
+    /* send() freed space in the write buffer: run any requests still pending in the read buffer and
        queue their replies */
     processPendingLines(str_Connection);
 
@@ -336,13 +340,29 @@ int TcpServer::writeTo(Connection& str_Connection) {
 
 void TcpServer::processPendingLines(Connection& str_Connection) {
     /* Answer complete lines until no line is left, or until the unsent replies reach the limit.
-       Lines not answered yet stay in sz_ReadBuffer until writeTo() free space. */
+       Lines not answered yet stay in sz_ReadBuffer until writeTo() frees space.
+       TEMPORARY: parse -> execute -> encode moves to PDO */
     while (str_Connection.sz_WriteBuffer.size() < NET_MAX_WRITE_BUFFER) {
         const std::optional<std::string> opt_Line = PWP_ExtractLine(str_Connection.sz_ReadBuffer);
         if (!opt_Line.has_value()) {
             return;
         }
-        str_Connection.sz_WriteBuffer += CDE_ProcessLine(opt_Line.value(), m_obj_store);
+
+        /* Blank and whitespace-only lines get no reply */
+        if (opt_Line->find_first_not_of(PWP_WHITESPACE) == std::string::npos) {
+            continue;
+        }
+
+        const ParseResult str_Parsed = PWP_ParseLine(opt_Line.value());
+        PwpReply          str_Reply;
+        if (str_Parsed.opt_Request.has_value()) {
+            str_Reply = CDE_ExecuteRequest(str_Parsed.opt_Request.value(), m_obj_store);
+        } else {
+            str_Reply.enm_Type   = PwpReplyType::RPL_ERROR;
+            str_Reply.u8_Status  = static_cast<uint8_t>(P_EINVARG);
+            str_Reply.sz_Payload = str_Parsed.sz_Error;
+        }
+        str_Connection.sz_WriteBuffer += PWP_EncodeReply(str_Reply);
     }
 }
 

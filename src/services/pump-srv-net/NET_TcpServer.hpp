@@ -39,7 +39,7 @@ public:
      * @brief Creates a server. Nothing is opened until start() is called.
      *
      * @param str_NetConfig The network configuration containing the IP and port to bind to.
-     * @param obj_Store The store that commands run against. Must outlive the server instance.
+     * @param obj_Store The store that requests run against. Must outlive the server instance.
      */
     TcpServer(const NetServerConfig& str_NetConfig, applications::KvStore& obj_Store);
 
@@ -113,7 +113,7 @@ private:
 /**
  * @brief Creates the app's server from NET's current settings and opens its listening socket.
  *
- * @param ptr_Store Store that commands runs against.
+ * @param ptr_Store Store that requests run against.
  *
  * @return P_OK on success; negative P_E* code on failure.
  */

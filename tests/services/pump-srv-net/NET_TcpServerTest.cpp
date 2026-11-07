@@ -4,7 +4,7 @@
  * @author  Shangjie Zheng
  * @brief   End-to-end tests for the TCP server, over real sockets on 127.0.0.1.
  *          This file tests:
- *           + PING, pipelined commands, commands split across sends
+ *           + PING, pipelined requests, requests split across sends
  *           + Several clients sharing one store, errors not closing the connection
  *           + Lines longer than PWP_MAX_LINE_LENGTH closing the connection
  *           + Big replies beyond the write-buffer limit (backpressure)
@@ -206,7 +206,7 @@ TEST_F(TcpServerTest, PingReturnsPong) {
     close(fd_Client);
 }
 
-TEST_F(TcpServerTest, ConnectionStaysOpenBetweenCommands) {
+TEST_F(TcpServerTest, ConnectionStaysOpenBetweenRequests) {
     const int fd_Client = connectClient();
     ASSERT_NE(fd_Client, -1);
 
@@ -218,7 +218,7 @@ TEST_F(TcpServerTest, ConnectionStaysOpenBetweenCommands) {
     close(fd_Client);
 }
 
-TEST_F(TcpServerTest, PipelinedCommandsAreAnsweredInOrder) {
+TEST_F(TcpServerTest, PipelinedRequestsAreAnsweredInOrder) {
     const int fd_Client = connectClient();
     ASSERT_NE(fd_Client, -1);
     net_sendAll(fd_Client, "SET name pumpkin\nGET name\nDEL name\nGET name\n");
@@ -226,7 +226,7 @@ TEST_F(TcpServerTest, PipelinedCommandsAreAnsweredInOrder) {
     close(fd_Client);
 }
 
-TEST_F(TcpServerTest, CommandSplitAcrossSendsIsHandled) {
+TEST_F(TcpServerTest, RequestSplitAcrossSendsIsHandled) {
     const int fd_Client = connectClient();
     ASSERT_NE(fd_Client, -1);
     net_sendAll(fd_Client, "SET na");
@@ -248,11 +248,11 @@ TEST_F(TcpServerTest, ClientsShareTheSameStore) {
     close(fd_Reader);
 }
 
-TEST_F(TcpServerTest, InvalidCommandKeepsConnectionOpen) {
+TEST_F(TcpServerTest, InvalidRequestKeepsConnectionOpen) {
     const int fd_Client = connectClient();
     ASSERT_NE(fd_Client, -1);
     net_sendAll(fd_Client, "HELLO\nPING\n");
-    EXPECT_EQ(net_readLines(fd_Client, 2), "ERR Unknown command: 'HELLO'\nPONG\n");
+    EXPECT_EQ(net_readLines(fd_Client, 2), "ERR Unknown request: 'HELLO'\nPONG\n");
     close(fd_Client);
 }
 
@@ -286,14 +286,14 @@ TEST_F(TcpServerTest, BigPipelinedRepliesAllArriveDespiteWriteLimit) {
     ASSERT_NE(fd_Client, -1);
 
     /* 40 GETs of a 60 KB value produce ~2.4 MB of replies, more than NET_MAX_WRITE_BUFFER (1 MiB).
-       Send every command first and only then start reading */
+       Send every request first and only then start reading */
     const std::string sz_Value(60000, 'v');
     const int         int_GetCount = 40;
-    std::string       sz_Commands  = "SET big " + sz_Value + "\n";
+    std::string       sz_Requests  = "SET big " + sz_Value + "\n";
     for (int int_I = 0; int_I < int_GetCount; ++int_I) {
-        sz_Commands += "GET big\n";
+        sz_Requests += "GET big\n";
     }
-    net_sendAll(fd_Client, sz_Commands);
+    net_sendAll(fd_Client, sz_Requests);
 
     std::string sz_Expected = "OK\n";
     for (int int_I = 0; int_I < int_GetCount; ++int_I) {
@@ -327,11 +327,11 @@ TEST_F(TcpServerTest, HalfClosedClientStillGetsAllBigReplies) {
 
     /* ~2.4 MB of replies are still pending when the client stops sending */
     const int   int_GetCount = 40;
-    std::string sz_Commands;
+    std::string sz_Requests;
     for (int int_I = 0; int_I < int_GetCount; ++int_I) {
-        sz_Commands += "GET big\n";
+        sz_Requests += "GET big\n";
     }
-    net_sendAll(fd_Client, sz_Commands);
+    net_sendAll(fd_Client, sz_Requests);
     shutdown(fd_Client, SHUT_WR);
 
     std::string sz_Expected;
