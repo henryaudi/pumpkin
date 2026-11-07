@@ -8,8 +8,8 @@ persistent design.
 
 ## Features
 
-- **Commands:** `PING`, `SET key value [key value ...]`, `GET key`, `DEL key`
-- **Text protocol** for debugging: one command per line, usable with `nc`
+- **Requests:** `PING`, `SET key value [key value ...]`, `GET key`, `DEL key`
+- **Text protocol** for debugging: one request per line, usable with `nc`
 - **Binary protocol (PBWP v1)** codec: length-prefixed frames, binary-safe keys and values,
   request ids, pipelining (server integration in progress)
 - **Non-blocking networking** with `poll()`, pipelining, backpressure and half-close handling
