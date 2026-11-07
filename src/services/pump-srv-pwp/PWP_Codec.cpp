@@ -360,7 +360,7 @@ int PWP_EncodeReplyFrame(const PwpReply& str_Reply, uint8_t* ptr_Dst, size_t siz
 
     const size_t siz_FrameSize = middlewares::PBWP_HEADER_SIZE + siz_PayloadLength;
     const int    int_Ret       = pwp_checkOutput(siz_FrameSize, ptr_Dst, siz_Capacity);
-    if (int_Ret < 0) {
+    if (int_Ret != 0) {
         return int_Ret;
     }
 
@@ -454,8 +454,8 @@ int PWP_DecodeReplyFrame(const uint8_t* ptr_Src, size_t siz_Length, PwpReply* pt
     LOG_TRC("reply %u: type %u, status %u, %d bytes", u32_RequestId,
             static_cast<unsigned>(enm_Type), static_cast<unsigned>(u8_Status), int_FrameSize);
 
-    ptr_Reply->enm_Type = enm_Type;
-    ptr_Reply->u8_Status = u8_Status;
+    ptr_Reply->enm_Type      = enm_Type;
+    ptr_Reply->u8_Status     = u8_Status;
     ptr_Reply->u32_RequestId = u32_RequestId;
 
     return int_FrameSize;
