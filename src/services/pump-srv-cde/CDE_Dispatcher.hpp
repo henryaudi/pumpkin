@@ -4,7 +4,7 @@
  * @author  Shangjie Zheng
  * @brief   Command Dispatch Engine (CDE): public interface.
  *          This file declares functions to:
- *           + Execute a parsed Command against a KvStore
+ *           + Validate a request and run it against a KvStore
  ******************************************************************************
  * @attention
  *
@@ -19,10 +19,8 @@
 #ifndef PUMPKIN_CDE_DISPATCHER_HPP_
 #define PUMPKIN_CDE_DISPATCHER_HPP_
 
-#include <string>
-
 #include "applications/pump-app-eng/ENG_KvStore.hpp"
-#include "middlewares/pump-mid-pbwp/PBWP_Message.hpp"
+#include "services/pump-srv-pwp/PWP_Message.hpp"
 
 namespace pumpkin::services {
 
@@ -38,8 +36,7 @@ namespace pumpkin::services {
  *
  * @return The reply for the client.
  */
-middlewares::PbwpReply CDE_ExecuteCommand(const middlewares::PbwpRequest& str_Req,
-                                          applications::KvStore&          obj_Store);
+PwpReply CDE_ExecuteRequest(const PwpRequest& str_Request, applications::KvStore& obj_Store);
 
 }  // namespace pumpkin::services
 
