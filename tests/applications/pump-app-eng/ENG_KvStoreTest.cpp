@@ -17,13 +17,13 @@
  ******************************************************************************
  */
 
-#include "core/pump-core-eng/ENG_KvStore.hpp"
+#include "applications/pump-app-eng/ENG_KvStore.hpp"
 
 #include <gtest/gtest.h>
 
 #include <string>
 
-namespace pumpkin::core {
+namespace pumpkin::applications {
 namespace {
 
 TEST(KvStore, GetMissingKeyReturnsNothing) {
@@ -100,4 +100,4 @@ TEST(KvStore, KeysAndValuesCanContainZeroBytes) {
 }
 
 }  // namespace
-}  // namespace pumpkin::core
+}  // namespace pumpkin::applications

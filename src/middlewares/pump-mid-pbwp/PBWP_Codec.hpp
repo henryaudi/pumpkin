@@ -2,11 +2,13 @@
  ******************************************************************************
  * @file    PBWP_Codec.hpp
  * @author  Shangjie Zheng
- * @brief   Pumpkin Binary Wire Protocol (PBWP) codec: public interface.
+ * @brief   Pumpkin Binary Wire Protocol (PBWP) frame access: public interface.
  *          This file declares functions to:
- *           + Encode / decode request frames (client side encodes, server decodes)
- *           + Turn a decoded request into the protocol-independent Command
- *           + Encode / decode reply frames (server side encodes, client decodes)
+ *           + Check whether received bytes start with a complete, valid frame
+ *           + Read the header (whole, or one field at a time) and find the payload
+ *           + Write a header in front of a payload
+ *           + Read / write little-endian integers, the wire byte order
+ *          Encoding and decoding what is inside the payload is the user protocol's job (PWP).
  ******************************************************************************
  * @attention
  *
@@ -22,84 +24,73 @@
 #define PUMPKIN_PBWP_CODEC_HPP_
 
 #include <cstdint>
-#include <string>
 
-#include "middlewares/pump-mid-pbwp/PBWP_Frame.hpp"
-#include "middlewares/pump-mid-pwp/PWP_Command.hpp"
-#include "middlewares/pump-mid-pwp/PWP_Reply.hpp"
+#include "middlewares/pump-mid-pbwp/PBWP_Message.hpp"
 
 namespace pumpkin::middlewares {
 
 /**
- * @brief Encodes one request frame into a caller-provided byte buffer.
+ * @brief Validates the header at ptr_Src[0] and whether the whole frame has arrived.
  *
- * @details Size query: with ptr_Out == NULL and siz_Capacity == 0, nothing is written and the
- *          required size is returned, so the caller can size the buffer first.
+ * @details Checks magic, version, flags (all must be 0 in version 1) and the payload limit. Does
+ *          not look inside the payload. The buffer is not modified.
  *
- * @param str_Request  The opcode, request id and arguments to send.
- * @param ptr_Out      Where the frame is written, starting at ptr_Out[0].
- * @param siz_Capacity Bytes available at ptr_Out buffer.
+ * @param ptr_Src     Received bytes; may hold a partial frame, or several frames.
+ * @param siz_Length  Number of bytes at ptr_Src.
  *
- * @return Bytes written (> 0), or the required size for a size query. -P_ERANGE if the buffer is
- *         too small or the frame exceeds the protocol limits; -P_EINVARG if ptr_Out is NULL with a
- *         non-zero capacity. Nothing is written on failure.
+ * @return Frame size in bytes (> 0) once header and payload have fully arrived. 0 if more bytes
+ *         are needed. -P_EINVARG for a wrong magic or version, any flag set, or a NULL ptr_Src with
+ *         a non-zero length; -P_ERANGE for a payload over PBWP_MAX_PAYLOAD_SIZE. On a negative
+ *         result the stream can't be trusted any more, so the caller closes the connection.
  */
-int PBWP_EncodeRequest(const PbwpRequest& str_Request, uint8_t* ptr_Out, size_t siz_Capacity);
+int PBWP_ValidateFrame(const uint8_t* ptr_Src, size_t siz_Length);
 
 /**
- * @brief Decodes the first request frame in a byte buffer. The buffer is not modified.
+ * @brief Reads all header fields as they are; no validation is performed here.
  *
- * @param ptr_In      Received bytes; may hold a partial frame, or several frames.
- * @param siz_Length  Number of bytes at ptr_In.
- * @param ptr_Request Receives the decoded request.
+ * @param ptr_Src     Received bytes; must hold at least PBWP_HEADER_SIZE bytes.
+ * @param siz_Length  Number of bytes at ptr_Src.
+ * @param ptr_Header  Pointer to a PbwpHeader structure where the header fields will be stored.
  *
- * @return Frame size in bytes (> 0); the caller removes that many bytes. 0 if more bytes are
- *         needed. A negative P_E* code if the bytes are not a valid frame (-P_EINVARG, -P_ERANGE):
- *         the stream can't be trusted any more, so the caller closes the connection.
- *         -P_EINVARG also for a NULL ptr_Request, or a NULL ptr_In with a non-zero length.
+ * @return P_OK on success, -P_ERANGE if fewer than PBWP_HEADER_SIZE bytes; -P_EINVARG for a NULL
+ *         pointer.
  */
-int PBWP_DecodeRequest(const uint8_t* ptr_In, size_t siz_Length, PbwpRequest* ptr_Request);
+int PBWP_GetHeader(const uint8_t* ptr_Src, size_t siz_Length, PbwpHeader* ptr_Header);
 
 /**
- * @brief Checks a decoded request's opcode and arguments, and turns it into a Command.
+ * @brief Writes a 12-byte header at ptr_Dst[0..11]: PBWP_MAGIC, PBWP_VERSION and the given
+ *        fields. The caller writes the u32_PayloadLength payload bytes right after it.
  *
- * @details Errors here are about one request, not the stream: the caller sends an error reply
- *          and keeps the connection open, like a bad text command.
+ * @param ptr_Dst           Where the frame starts.
+ * @param siz_Capacity      Bytes available at ptr_Dst.
+ * @param u8_Type           Type byte, defined by the user protocol.
+ * @param u8_Flags          PBWP_FLAG_* bits; must be 0 in version 1.
+ * @param u32_RequestId     Request id.
+ * @param u32_PayloadLength Number of payload bytes that follow the header.
  *
- * @param ptr_Request The decoded request; its arguments are moved into the command.
- * @param ptr_Command Receives the command.
- * @param ptr_Error   Receives the error message on failure.
- *
- * @return P_OK; -P_EINVARG for an unknown opcode or a wrong argument count; -P_ERANGE if a key is
- *         longer than PBWP_MAX_KEY_SIZE.
+ * @return PBWP_HEADER_SIZE; -P_ERANGE if ptr_Dst has fewer than PBWP_HEADER_SIZE bytes or the
+ *         payload is over PBWP_MAX_PAYLOAD_SIZE; -P_EINVARG for a NULL ptr_Dst or a flag set.
+ *         Nothing is written on failure.
  */
-int PBWP_PbwpToCommand(PbwpRequest* ptr_Request, Command* ptr_Command, std::string* ptr_Error);
+int PBWP_SetHeader(uint8_t* ptr_Dst, size_t siz_Capacity, uint8_t u8_Type, uint8_t u8_Flags,
+                   uint32_t u32_RequestId, uint32_t u32_PayloadLength);
 
-/**
- * @brief Encodes one reply frame into a caller-provided byte buffer. Same size-query and return
- *        conventions as PBWP_EncodeRequest().
- *
- * @param str_Reply    Reply type, request id and payload (or integer) to send. u8_Status is
- *                     written only for RPL_ERROR, as the first payload byte.
- * @param ptr_Out      Where the frame is written, starting at ptr_Out[0].
- * @param siz_Capacity Bytes available at ptr_Out.
- *
- * @return Bytes written (> 0), or the required size for a size query; -P_ERANGE, -P_EINVARG as
- *         for PBWP_EncodeRequest(), and -P_EINVARG for an unknown reply type.
- */
-int PBWP_EncodeReply(const PbwpReply& str_Reply, uint8_t* ptr_Out, size_t siz_Capacity);
+// ---- Single header fields: ptr_Frame must hold at least PBWP_HEADER_SIZE bytes -----------------
+uint8_t        PBWP_GetMagic(const uint8_t* ptr_Frame);
+uint8_t        PBWP_GetVersion(const uint8_t* ptr_Frame);
+uint8_t        PBWP_GetType(const uint8_t* ptr_Frame);
+uint8_t        PBWP_GetFlags(const uint8_t* ptr_Frame);
+uint32_t       PBWP_GetRequestId(const uint8_t* ptr_Frame);
+uint32_t       PBWP_GetPayloadLength(const uint8_t* ptr_Frame);
+const uint8_t* PBWP_GetPayload(const uint8_t* ptr_Frame);  // first byte after the header
 
-/**
- * @brief Decodes the first reply frame in a byte buffer. Same return convention as
- *        PBWP_DecodeRequest().
- *
- * @param ptr_In     Received bytes.
- * @param siz_Length Number of bytes at ptr_In.
- * @param ptr_Reply  Receives the decoded reply.
- *
- * @return Frame size (> 0), 0 if more bytes are needed, or a negative P_E* code.
- */
-int PBWP_DecodeReply(const uint8_t* ptr_In, size_t siz_Length, PbwpReply* ptr_Reply);
+// ---- Little-endian integers: the caller checks the bytes are there ------------------------------
+void     PBWP_PutLe16(uint8_t* ptr_Dst, uint16_t u16_Value);
+void     PBWP_PutLe32(uint8_t* ptr_Dst, uint32_t u32_Value);
+void     PBWP_PutLe64(uint8_t* ptr_Dst, uint64_t u64_Value);
+uint16_t PBWP_GetLe16(const uint8_t* ptr_Src);
+uint32_t PBWP_GetLe32(const uint8_t* ptr_Src);
+uint64_t PBWP_GetLe64(const uint8_t* ptr_Src);
 
 }  // namespace pumpkin::middlewares
 

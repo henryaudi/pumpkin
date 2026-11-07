@@ -27,7 +27,7 @@
 #include <map>
 #include <string>
 
-#include "core/pump-core-eng/ENG_KvStore.hpp"
+#include "applications/pump-app-eng/ENG_KvStore.hpp"
 #include "services/pump-srv-net/NET_ServerConfig.hpp"
 #include "services/pump-srv-net/NET_TcpSocket.hpp"
 
@@ -39,9 +39,9 @@ public:
      * @brief Creates a server. Nothing is opened until start() is called.
      *
      * @param str_NetConfig The network configuration containing the IP and port to bind to.
-     * @param obj_Store The store that commands run against. Must outlive the server instance.
+     * @param obj_Store The store that requests run against. Must outlive the server instance.
      */
-    TcpServer(const NetServerConfig& str_NetConfig, core::KvStore& obj_Store);
+    TcpServer(const NetServerConfig& str_NetConfig, applications::KvStore& obj_Store);
 
     /**
      * @brief Closes the listening socket and all client connections (the new OOP style enables
@@ -100,7 +100,7 @@ private:
 
     std::string               m_sz_bindIp;
     uint16_t                  m_u16_port;
-    core::KvStore&            m_obj_store;
+    applications::KvStore&    m_obj_store;
     TcpSocket                 m_obj_listen;
     std::map<int, Connection> m_map_connections;  // maps client socket fd to Connection object
     std::atomic<bool>         m_atm_stopRequested{false};
@@ -113,11 +113,11 @@ private:
 /**
  * @brief Creates the app's server from NET's current settings and opens its listening socket.
  *
- * @param ptr_Store Store that commands runs against.
+ * @param ptr_Store Store that requests run against.
  *
  * @return P_OK on success; negative P_E* code on failure.
  */
-int NET_Init(core::KvStore* ptr_Store);
+int NET_Init(applications::KvStore* ptr_Store);
 
 /**
  * @brief Serves clients until NET_StopServer() is called.

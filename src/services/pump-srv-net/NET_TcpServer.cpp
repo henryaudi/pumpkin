@@ -6,7 +6,7 @@
  *          This file provides functions to:
  *           + Open a listening socket on 127.0.0.1
  *           + Accept clients and read/write their bytes
- *           + Hand each complete line to the Command Dispatch Engine
+ *           + Hand each complete line to PWP and CDE (moves to PDO later)
  ******************************************************************************
  * @attention
  *
@@ -32,8 +32,8 @@
 
 #include "common/pump-cmn-log/LOG_Logger.hpp"
 #include "common/pump-cmn-stat/STAT_Status.hpp"
-#include "middlewares/pump-mid-cde/CDE_Dispatcher.hpp"
-#include "middlewares/pump-mid-pwp/PWP_Codec.hpp"
+#include "services/pump-srv-cde/CDE_Dispatcher.hpp"
+#include "services/pump-srv-pwp/PWP_Codec.hpp"
 
 LOG_MODULE_REGISTER(NET, LOG_LEVEL_DBG)
 
@@ -55,7 +55,7 @@ std::atomic<TcpServer*>    net_atm_server{nullptr};  // same server, for NET_Sto
 // ================================================================================================
 // GLOBAL SCOPE
 // ================================================================================================
-TcpServer::TcpServer(const NetServerConfig& str_NetConfig, core::KvStore& obj_Store)
+TcpServer::TcpServer(const NetServerConfig& str_NetConfig, applications::KvStore& obj_Store)
     : m_sz_bindIp(str_NetConfig.sz_BindIp),
       m_u16_port(str_NetConfig.u16_Port),
       m_obj_store(obj_Store) {}
@@ -93,7 +93,7 @@ int TcpServer::run() {
             int               int_Events     = 0;
 
             /* If unsent replies are below the limit, ask poll() to notify us when the client sends
-               more commands. Otherwise stop reading until it catches up (backpressure) */
+               more requests. Otherwise stop reading until it catches up (backpressure) */
             if (!str_Connection.bol_PeerClosed && !str_Connection.bol_CloseAfterWrite &&
                 str_Connection.sz_WriteBuffer.size() < NET_MAX_WRITE_BUFFER) {
                 int_Events |= POLLIN;
@@ -303,12 +303,16 @@ int TcpServer::readFrom(int fd_Client, Connection& str_Connection) {
             ? str_Connection.sz_ReadBuffer.size()
             : str_Connection.sz_ReadBuffer.size() - (siz_LastNewLineIdx + 1);
 
-    if (siz_Unfinished > middlewares::PWP_MAX_LINE_LENGTH) {
+    if (siz_Unfinished > PWP_MAX_LINE_LENGTH) {
         LOG_WRN("client fd %d: line longer than %zu bytes, closing", fd_Client,
-                middlewares::PWP_MAX_LINE_LENGTH);
+                PWP_MAX_LINE_LENGTH);
         str_Connection.sz_ReadBuffer.clear();
-        str_Connection.sz_WriteBuffer += middlewares::PWP_EncodeReply(
-            middlewares::Reply{middlewares::ReplyType::REPLY_ERROR, "line too long", 0});
+
+        PwpReply str_TooLong;
+        str_TooLong.enm_Type   = PwpReplyType::RPL_ERROR;
+        str_TooLong.u8_Status  = static_cast<uint8_t>(P_ERANGE);
+        str_TooLong.sz_Payload = "line too long";
+        str_Connection.sz_WriteBuffer += PWP_EncodeReply(str_TooLong);
         str_Connection.bol_CloseAfterWrite = true;
     }
 
@@ -327,7 +331,7 @@ int TcpServer::writeTo(Connection& str_Connection) {
     /* Drop what was sent, keep the rest */
     str_Connection.sz_WriteBuffer.erase(0, siz_NumBytesSent);
 
-    /* send() freed space in the write buffer: run any commands still pending in the read buffer and
+    /* send() freed space in the write buffer: run any requests still pending in the read buffer and
        queue their replies */
     processPendingLines(str_Connection);
 
@@ -336,15 +340,29 @@ int TcpServer::writeTo(Connection& str_Connection) {
 
 void TcpServer::processPendingLines(Connection& str_Connection) {
     /* Answer complete lines until no line is left, or until the unsent replies reach the limit.
-       Lines not answered yet stay in sz_ReadBuffer until writeTo() free space. */
+       Lines not answered yet stay in sz_ReadBuffer until writeTo() frees space.
+       TEMPORARY: parse -> execute -> encode moves to PDO */
     while (str_Connection.sz_WriteBuffer.size() < NET_MAX_WRITE_BUFFER) {
-        const std::optional<std::string> opt_Line =
-            middlewares::PWP_ExtractLine(str_Connection.sz_ReadBuffer);
+        const std::optional<std::string> opt_Line = PWP_ExtractLine(str_Connection.sz_ReadBuffer);
         if (!opt_Line.has_value()) {
             return;
         }
-        str_Connection.sz_WriteBuffer +=
-            middlewares::CDE_ProcessLine(opt_Line.value(), m_obj_store);
+
+        /* Blank and whitespace-only lines get no reply */
+        if (opt_Line->find_first_not_of(PWP_WHITESPACE) == std::string::npos) {
+            continue;
+        }
+
+        const ParseResult str_Parsed = PWP_ParseLine(opt_Line.value());
+        PwpReply          str_Reply;
+        if (str_Parsed.opt_Request.has_value()) {
+            str_Reply = CDE_ExecuteRequest(str_Parsed.opt_Request.value(), m_obj_store);
+        } else {
+            str_Reply.enm_Type   = PwpReplyType::RPL_ERROR;
+            str_Reply.u8_Status  = static_cast<uint8_t>(P_EINVARG);
+            str_Reply.sz_Payload = str_Parsed.sz_Error;
+        }
+        str_Connection.sz_WriteBuffer += PWP_EncodeReply(str_Reply);
     }
 }
 
@@ -356,7 +374,7 @@ void TcpServer::closeConnection(int fd_Client) {
 // ================================================================================================
 // GLOBAL SCOPE
 // ================================================================================================
-int NET_Init(core::KvStore* ptr_Store) {
+int NET_Init(applications::KvStore* ptr_Store) {
     if (net_ptr_server != nullptr) {
         LOG_WRN("NET_Init() called while a server already exists");
         return -P_EALREADY;

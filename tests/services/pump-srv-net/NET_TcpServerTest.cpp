@@ -4,7 +4,7 @@
  * @author  Shangjie Zheng
  * @brief   End-to-end tests for the TCP server, over real sockets on 127.0.0.1.
  *          This file tests:
- *           + PING, pipelined commands, commands split across sends
+ *           + PING, pipelined requests, requests split across sends
  *           + Several clients sharing one store, errors not closing the connection
  *           + Lines longer than PWP_MAX_LINE_LENGTH closing the connection
  *           + Big replies beyond the write-buffer limit (backpressure)
@@ -37,7 +37,7 @@
 
 #include "common/pump-cmn-log/LOG_Logger.hpp"
 #include "common/pump-cmn-stat/STAT_Status.hpp"
-#include "middlewares/pump-mid-pwp/PWP_Codec.hpp"
+#include "services/pump-srv-pwp/PWP_Codec.hpp"
 
 namespace pumpkin::services {
 namespace {
@@ -127,15 +127,15 @@ protected:
         return net_connectTo(m_obj_server.port());
     }
 
-    core::KvStore m_obj_store;
-    TcpServer     m_obj_server{net_configOnPort(0), m_obj_store};
-    std::thread   m_thr_server;
+    applications::KvStore m_obj_store;
+    TcpServer             m_obj_server{net_configOnPort(0), m_obj_store};
+    std::thread           m_thr_server;
 };
 
 /* start() reports WHY it failed: a port that is already taken gives -P_EADDRINUSE */
 TEST(TcpServerStart, PortInUseReturnsAddrInUse) {
-    core::KvStore obj_Store;
-    TcpServer     obj_First(net_configOnPort(0), obj_Store);
+    applications::KvStore obj_Store;
+    TcpServer             obj_First(net_configOnPort(0), obj_Store);
     ASSERT_EQ(obj_First.start(), P_OK);
 
     TcpServer obj_Second(net_configOnPort(obj_First.port()), obj_Store);
@@ -144,15 +144,15 @@ TEST(TcpServerStart, PortInUseReturnsAddrInUse) {
 
 /* run() without a successful start() returns at once instead of looping forever */
 TEST(TcpServerRun, WithoutStartReturnsNotInit) {
-    core::KvStore obj_Store;
-    TcpServer     obj_Server(net_configOnPort(0), obj_Store);
+    applications::KvStore obj_Store;
+    TcpServer             obj_Server(net_configOnPort(0), obj_Store);
     EXPECT_EQ(obj_Server.run(), -P_ENOTINIT);
 }
 
 /* run() returns P_OK when it stops because stop() was called */
 TEST(TcpServerRun, ReturnsZeroAfterStop) {
-    core::KvStore obj_Store;
-    TcpServer     obj_Server(net_configOnPort(0), obj_Store);
+    applications::KvStore obj_Store;
+    TcpServer             obj_Server(net_configOnPort(0), obj_Store);
     ASSERT_EQ(obj_Server.start(), P_OK);
 
     int         int_RunResult = -P_EIO;
@@ -164,8 +164,8 @@ TEST(TcpServerRun, ReturnsZeroAfterStop) {
 
 /* Issue #9: a failed start() leaves the server not started, so run() reports it */
 TEST(TcpServerStart, FailureLeavesServerNotStarted) {
-    core::KvStore obj_Store;
-    TcpServer     obj_First(net_configOnPort(0), obj_Store);
+    applications::KvStore obj_Store;
+    TcpServer             obj_First(net_configOnPort(0), obj_Store);
     ASSERT_EQ(obj_First.start(), P_OK);
 
     TcpServer obj_Second(net_configOnPort(obj_First.port()), obj_Store);
@@ -175,8 +175,8 @@ TEST(TcpServerStart, FailureLeavesServerNotStarted) {
 
 /* Issue #9: after a failure, start() can be retried once the port is free */
 TEST(TcpServerStart, CanBeRetriedAfterFailure) {
-    core::KvStore obj_Store;
-    uint16_t      u16_Port = 0;
+    applications::KvStore obj_Store;
+    uint16_t              u16_Port = 0;
     {
         TcpServer obj_First(net_configOnPort(0), obj_Store);
         ASSERT_EQ(obj_First.start(), P_OK);
@@ -192,8 +192,8 @@ TEST(TcpServerStart, CanBeRetriedAfterFailure) {
 
 /* start() on a server that is already started is refused instead of leaking a second socket */
 TEST(TcpServerStart, SecondStartReturnsAlready) {
-    core::KvStore obj_Store;
-    TcpServer     obj_Server(net_configOnPort(0), obj_Store);
+    applications::KvStore obj_Store;
+    TcpServer             obj_Server(net_configOnPort(0), obj_Store);
     ASSERT_EQ(obj_Server.start(), P_OK);
     EXPECT_EQ(obj_Server.start(), -P_EALREADY);
 }
@@ -206,7 +206,7 @@ TEST_F(TcpServerTest, PingReturnsPong) {
     close(fd_Client);
 }
 
-TEST_F(TcpServerTest, ConnectionStaysOpenBetweenCommands) {
+TEST_F(TcpServerTest, ConnectionStaysOpenBetweenRequests) {
     const int fd_Client = connectClient();
     ASSERT_NE(fd_Client, -1);
 
@@ -218,7 +218,7 @@ TEST_F(TcpServerTest, ConnectionStaysOpenBetweenCommands) {
     close(fd_Client);
 }
 
-TEST_F(TcpServerTest, PipelinedCommandsAreAnsweredInOrder) {
+TEST_F(TcpServerTest, PipelinedRequestsAreAnsweredInOrder) {
     const int fd_Client = connectClient();
     ASSERT_NE(fd_Client, -1);
     net_sendAll(fd_Client, "SET name pumpkin\nGET name\nDEL name\nGET name\n");
@@ -226,7 +226,7 @@ TEST_F(TcpServerTest, PipelinedCommandsAreAnsweredInOrder) {
     close(fd_Client);
 }
 
-TEST_F(TcpServerTest, CommandSplitAcrossSendsIsHandled) {
+TEST_F(TcpServerTest, RequestSplitAcrossSendsIsHandled) {
     const int fd_Client = connectClient();
     ASSERT_NE(fd_Client, -1);
     net_sendAll(fd_Client, "SET na");
@@ -248,11 +248,11 @@ TEST_F(TcpServerTest, ClientsShareTheSameStore) {
     close(fd_Reader);
 }
 
-TEST_F(TcpServerTest, InvalidCommandKeepsConnectionOpen) {
+TEST_F(TcpServerTest, InvalidRequestKeepsConnectionOpen) {
     const int fd_Client = connectClient();
     ASSERT_NE(fd_Client, -1);
     net_sendAll(fd_Client, "HELLO\nPING\n");
-    EXPECT_EQ(net_readLines(fd_Client, 2), "ERR Unknown command: 'HELLO'\nPONG\n");
+    EXPECT_EQ(net_readLines(fd_Client, 2), "ERR Unknown request: 'HELLO'\nPONG\n");
     close(fd_Client);
 }
 
@@ -261,7 +261,7 @@ TEST_F(TcpServerTest, TooLongLineGetsErrorThenCloses) {
     ASSERT_NE(fd_Client, -1);
 
     /* One "line" longer than the limit, with no newline */
-    const std::string sz_Huge(middlewares::PWP_MAX_LINE_LENGTH + 1, 'A');
+    const std::string sz_Huge(PWP_MAX_LINE_LENGTH + 1, 'A');
     net_sendAll(fd_Client, sz_Huge);
 
     EXPECT_EQ(net_readLines(fd_Client, 1), "ERR line too long\n");
@@ -286,14 +286,14 @@ TEST_F(TcpServerTest, BigPipelinedRepliesAllArriveDespiteWriteLimit) {
     ASSERT_NE(fd_Client, -1);
 
     /* 40 GETs of a 60 KB value produce ~2.4 MB of replies, more than NET_MAX_WRITE_BUFFER (1 MiB).
-       Send every command first and only then start reading */
+       Send every request first and only then start reading */
     const std::string sz_Value(60000, 'v');
     const int         int_GetCount = 40;
-    std::string       sz_Commands  = "SET big " + sz_Value + "\n";
+    std::string       sz_Requests  = "SET big " + sz_Value + "\n";
     for (int int_I = 0; int_I < int_GetCount; ++int_I) {
-        sz_Commands += "GET big\n";
+        sz_Requests += "GET big\n";
     }
-    net_sendAll(fd_Client, sz_Commands);
+    net_sendAll(fd_Client, sz_Requests);
 
     std::string sz_Expected = "OK\n";
     for (int int_I = 0; int_I < int_GetCount; ++int_I) {
@@ -327,11 +327,11 @@ TEST_F(TcpServerTest, HalfClosedClientStillGetsAllBigReplies) {
 
     /* ~2.4 MB of replies are still pending when the client stops sending */
     const int   int_GetCount = 40;
-    std::string sz_Commands;
+    std::string sz_Requests;
     for (int int_I = 0; int_I < int_GetCount; ++int_I) {
-        sz_Commands += "GET big\n";
+        sz_Requests += "GET big\n";
     }
-    net_sendAll(fd_Client, sz_Commands);
+    net_sendAll(fd_Client, sz_Requests);
     shutdown(fd_Client, SHUT_WR);
 
     std::string sz_Expected;
@@ -370,7 +370,7 @@ protected:
         NET_DeinitServer();  // before m_obj_store is destroyed
         NET_SetPort(NET_DEFAULT_PORT);
     }
-    core::KvStore m_obj_store;
+    applications::KvStore m_obj_store;
 };
 
 TEST_F(NetFrontDoorTest, RunBeforeInitIsNotInit) {

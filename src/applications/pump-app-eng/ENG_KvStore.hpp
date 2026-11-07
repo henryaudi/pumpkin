@@ -25,7 +25,7 @@
 #include <string>
 #include <unordered_map>
 
-namespace pumpkin::core {
+namespace pumpkin::applications {
 
 /**
  * @brief In-memory key-value storage for one shard.
@@ -82,6 +82,6 @@ private:
     std::unordered_map<std::string, std::string> m_umap_data;  ///< key -> value
 };
 
-}  // namespace pumpkin::core
+}  // namespace pumpkin::applications
 
 #endif  // PUMPKIN_ENG_KVSTORE_HPP_

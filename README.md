@@ -8,8 +8,8 @@ persistent design.
 
 ## Features
 
-- **Commands:** `PING`, `SET key value [key value ...]`, `GET key`, `DEL key`
-- **Text protocol** for debugging: one command per line, usable with `nc`
+- **Requests:** `PING`, `SET key value [key value ...]`, `GET key`, `DEL key`
+- **Text protocol** for debugging: one request per line, usable with `nc`
 - **Binary protocol (PBWP v1)** codec: length-prefixed frames, binary-safe keys and values,
   request ids, pipelining (server integration in progress)
 - **Non-blocking networking** with `poll()`, pipelining, backpressure and half-close handling
@@ -65,14 +65,14 @@ through pull requests; `dev` → `stage` → `prod`.
 ```
 apps/pumpkin-server/        the server executable (wiring only)
 src/common/                 pump-cmn-log (logging), pump-cmn-stat (status codes)
-src/core/                   pump-core-eng (the key-value store)
-src/middlewares/            pump-mid-pwp (text protocol), pump-mid-pbwp (binary protocol),
-                            pump-mid-cde (command dispatch)
-src/services/               pump-srv-net (TCP server and sockets)
+src/applications/           pump-app-eng (the key-value store)
+src/middlewares/            pump-mid-pbwp (binary protocol framing)
+src/services/               pump-srv-net (TCP server and sockets), pump-srv-pwp (wire protocol),
+                            pump-srv-cde (command dispatch), pump-srv-cms (configuration)
 tests/                      unit and integration tests, mirroring src/
 ```
 
-Layers depend only on the layers below them: common → core → middlewares → services → apps.
+Layers depend only on the layers below them: common → applications → middlewares → services → apps.
 
 ## License
 
