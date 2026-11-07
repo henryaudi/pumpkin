@@ -7,7 +7,7 @@ target_include_directories(pump-srv-cde PUBLIC ${PROJECT_SOURCE_DIR}/src)
 target_link_libraries(pump-srv-cde
     PUBLIC
         pump::app-eng
-        pump::mid-pbwp       # CDE's API uses PbwpRequest / PbwpReply
+        pump::srv-pwp
     PRIVATE
         pump::cmn-log
         pump::cmn-stat

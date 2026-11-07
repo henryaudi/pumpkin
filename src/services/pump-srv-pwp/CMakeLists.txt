@@ -5,7 +5,8 @@ add_library(pump::srv-pwp ALIAS pump-srv-pwp)
 
 target_include_directories(pump-srv-pwp PUBLIC ${PROJECT_SOURCE_DIR}/src)
 target_link_libraries(pump-srv-pwp
-    PUBLIC
-        pump::mid-pbwp       # PWP's API uses PbwpRequest / PbwpReply
     PRIVATE
+        pump::mid-pbwp
+        pump::cmn-log
+        pump::cmn-stat
         pumpkin::warnings)
