@@ -24,6 +24,7 @@
 
 #include <array>
 #include <cerrno>
+#include <cinttypes>
 #include <csignal>
 #include <memory>
 #include <optional>
@@ -32,8 +33,6 @@
 
 #include "common/pump-cmn-log/LOG_Logger.hpp"
 #include "common/pump-cmn-stat/STAT_Status.hpp"
-#include "services/pump-srv-cde/CDE_Dispatcher.hpp"
-#include "services/pump-srv-pwp/PWP_Codec.hpp"
 
 LOG_MODULE_REGISTER(NET, LOG_LEVEL_DBG)
 
@@ -44,21 +43,21 @@ namespace {
 // PRIVATE SCOPE
 // ================================================================================================
 
-constexpr int    NET_POLL_TIMEOUT_MS  = 100;
-constexpr size_t NET_READ_CHUNK_SIZE  = 4096;
-constexpr size_t NET_MAX_WRITE_BUFFER = 1024 * 1024;
+constexpr int         NET_POLL_TIMEOUT_MS  = 100;
+constexpr size_t      NET_READ_CHUNK_SIZE  = 4096;
+constexpr size_t      NET_MAX_WRITE_BUFFER = 1024 * 1024;  // 1 MB
+constexpr NetConnId_t NET_LISTEN_ID        = 0;            // The listening socket's connection ID
 
 std::unique_ptr<TcpServer> net_ptr_server;           // app's front door server
 std::atomic<TcpServer*>    net_atm_server{nullptr};  // same server, for NET_StopServer()
+NetReceiveHandler_t        net_fn_onReceive = nullptr;
 }  // namespace
 
 // ================================================================================================
 // GLOBAL SCOPE
 // ================================================================================================
-TcpServer::TcpServer(const NetServerConfig& str_NetConfig, applications::KvStore& obj_Store)
-    : m_sz_bindIp(str_NetConfig.sz_BindIp),
-      m_u16_port(str_NetConfig.u16_Port),
-      m_obj_store(obj_Store) {}
+TcpServer::TcpServer(const NetServerConfig& str_NetConfig)
+    : m_sz_bindIp(str_NetConfig.sz_BindIp), m_u16_port(str_NetConfig.u16_Port) {}
 
 int TcpServer::start() {
     if (m_obj_listen.isOpen()) {
@@ -78,97 +77,62 @@ int TcpServer::start() {
     return int_Result;
 }
 
-int TcpServer::run() {
-    /* Not started bro... */
+int TcpServer::run(NetReceiveHandler_t fn_OnReceive) {
     if (!m_obj_listen.isOpen()) {
         return -P_ENOTINIT;
     }
 
+    if (fn_OnReceive == nullptr) {
+        LOG_ERR("run() called with a null receive handler");
+        return -P_EINVARG;
+    }
+
+    m_fn_onReceive = fn_OnReceive;
+
     while (!m_atm_stopRequested) {
-        /* Build the list of sockets to watch */
-        std::vector<pollfd> vec_PollFds;
+        /* Build the list of sockets to watch. */
+        std::vector<pollfd>      vec_PollFds;
+        std::vector<NetConnId_t> vec_PollIds;
         vec_PollFds.push_back(pollfd{m_obj_listen.fd(), POLLIN, 0});
+        vec_PollIds.push_back(NET_LISTEN_ID);
         for (const auto& pair_Entry : m_map_connections) {
             const Connection& str_Connection = pair_Entry.second;
             int               int_Events     = 0;
 
-            /* If unsent replies are below the limit, ask poll() to notify us when the client sends
-               more requests. Otherwise stop reading until it catches up (backpressure) */
             if (!str_Connection.bol_PeerClosed && !str_Connection.bol_CloseAfterWrite &&
                 str_Connection.sz_WriteBuffer.size() < NET_MAX_WRITE_BUFFER) {
                 int_Events |= POLLIN;
             }
-            /* If there's still content in the write buffer, ask poll() to tell us when the socket
-               can send without waiting */
+
             if (!str_Connection.sz_WriteBuffer.empty()) {
                 int_Events |= POLLOUT;
             }
+
             /* Add this connection to the list of sockets to watch */
-            vec_PollFds.push_back(pollfd{pair_Entry.first, static_cast<short>(int_Events), 0});
-        }
+            vec_PollFds.push_back(
+                pollfd{str_Connection.obj_Socket.fd(), static_cast<short>(int_Events), 0});
+            vec_PollIds.push_back(pair_Entry.first);
 
-        /* Sleep until a socket is ready or the timeout passes */
-        const int int_Ready =
-            poll(vec_PollFds.data(), static_cast<nfds_t>(vec_PollFds.size()), NET_POLL_TIMEOUT_MS);
-        if (int_Ready < 0) {
-            if (errno == EINTR) {
-                continue;  // Interrupted by signal, retry poll()
-            }
-            LOG_ERR("poll() failed: %s (errno %d)", STAT_ToString(STAT_MapErrno(errno)), errno);
-            return -P_EIO;  // Exit the run loop on poll error
-        }
-
-        /* Handle ready sockets */
-        std::vector<int> vec_SocketsToClose;
-        for (const pollfd& str_PollFd : vec_PollFds) {
-            if (str_PollFd.revents == 0) {
-                continue;
-            }
-            if (str_PollFd.fd == m_obj_listen.fd()) {
-                acceptConnections();
-                continue;
-            }
-
-            Connection& str_Connection = m_map_connections.at(str_PollFd.fd);
-            bool        bol_KeepOpen   = (str_PollFd.revents & (POLLERR | POLLNVAL)) == 0;
-
-            /* Read if data arrived (POLLIN) or the peer hung up (POLLHUP) */
-            if (bol_KeepOpen && !str_Connection.bol_CloseAfterWrite &&
-                (str_PollFd.revents & (POLLIN | POLLHUP)) != 0) {
-                const int int_Result = readFrom(str_PollFd.fd, str_Connection);
-                if (int_Result < 0) {
-                    LOG_DBG("client fd %d: read failed: %s", str_PollFd.fd,
-                            STAT_ToString(-int_Result));
+            /* Sleep until a socket is ready or the timeout passes */
+            const int int_Ready = poll(vec_PollFds.data(), static_cast<nfds_t>(vec_PollFds.size()),
+                                       NET_POLL_TIMEOUT_MS);
+            if (int_Ready < 0) {
+                if (errno == EINTR) {
+                    continue; // Interrupted by signal, retry poll
                 }
-                bol_KeepOpen = (int_Result == P_OK);
+                LOG_ERR("poll() failed: %s (errno %d)", STAT_ToString(STAT_MapErrno(errno)), errno);
+                m_fn_onReceive = nullptr;
+                return -P_EIO;  // Exit the run loop on poll error
             }
-            /* Write to the client if there's data in the write buffer */
-            if (bol_KeepOpen && !str_Connection.sz_WriteBuffer.empty()) {
-                const int int_Result = writeTo(str_Connection);
-                if (int_Result < 0) {
-                    LOG_DBG("client fd %d: write failed: %s", str_PollFd.fd,
-                            STAT_ToString(-int_Result));
-                }
-                bol_KeepOpen = (int_Result == P_OK);
-            }
-            /* Close the connection if the peer has closed it or we are supposed to close after
-             * writing, and the write buffer is empty */
-            if (bol_KeepOpen &&
-                (str_Connection.bol_PeerClosed || str_Connection.bol_CloseAfterWrite) &&
-                str_Connection.sz_WriteBuffer.empty()) {
-                bol_KeepOpen = false;
-            }
-            if (!bol_KeepOpen) {
-                vec_SocketsToClose.push_back(str_PollFd.fd);
-            }
-        }
 
-        for (const int fd_Client : vec_SocketsToClose) {
-            closeConnection(fd_Client);
+            /* Handle ready sockets. Nothing is erased from the map until this loop is done, so
+             * str_Connection stays valid even while the handler runs */
+            std::vector<NetConnId_t> vec_ConnsToClose;
+            for (size_t i = 0; i < vec_PollFds.size(); i++) {
+                
+            }
         }
     }
-
-    return P_OK;
 }
 
 void TcpServer::stop() {
