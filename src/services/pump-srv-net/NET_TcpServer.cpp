@@ -90,7 +90,8 @@ int TcpServer::run(NetReceiveHandler_t fn_OnReceive) {
     m_fn_onReceive = fn_OnReceive;
 
     while (!m_atm_stopRequested) {
-        /* Build the list of sockets to watch. */
+        /* Build the list of sockets to watch. vec_PollIds[i] is the connection of vec_PollFds[i],
+           because poll() only gives the fds back */
         std::vector<pollfd>      vec_PollFds;
         std::vector<NetConnId_t> vec_PollIds;
         vec_PollFds.push_back(pollfd{m_obj_listen.fd(), POLLIN, 0});
@@ -99,11 +100,15 @@ int TcpServer::run(NetReceiveHandler_t fn_OnReceive) {
             const Connection& str_Connection = pair_Entry.second;
             int               int_Events     = 0;
 
+            /* If unsent replies are below the limit, ask poll() to notify us when the client sends
+               more requests. Otherwise stop reading until it catches up (backpressure) */
             if (!str_Connection.bol_PeerClosed && !str_Connection.bol_CloseAfterWrite &&
                 str_Connection.sz_WriteBuffer.size() < NET_MAX_WRITE_BUFFER) {
                 int_Events |= POLLIN;
             }
 
+            /* If there's still content in the write buffer, ask poll() to tell us when the socket
+               can send without waiting */
             if (!str_Connection.sz_WriteBuffer.empty()) {
                 int_Events |= POLLOUT;
             }
@@ -112,27 +117,78 @@ int TcpServer::run(NetReceiveHandler_t fn_OnReceive) {
             vec_PollFds.push_back(
                 pollfd{str_Connection.obj_Socket.fd(), static_cast<short>(int_Events), 0});
             vec_PollIds.push_back(pair_Entry.first);
+        }
 
-            /* Sleep until a socket is ready or the timeout passes */
-            const int int_Ready = poll(vec_PollFds.data(), static_cast<nfds_t>(vec_PollFds.size()),
-                                       NET_POLL_TIMEOUT_MS);
-            if (int_Ready < 0) {
-                if (errno == EINTR) {
-                    continue; // Interrupted by signal, retry poll
-                }
-                LOG_ERR("poll() failed: %s (errno %d)", STAT_ToString(STAT_MapErrno(errno)), errno);
-                m_fn_onReceive = nullptr;
-                return -P_EIO;  // Exit the run loop on poll error
+        /* Sleep until a socket is ready or the timeout passes */
+        const int int_Ready =
+            poll(vec_PollFds.data(), static_cast<nfds_t>(vec_PollFds.size()), NET_POLL_TIMEOUT_MS);
+        if (int_Ready < 0) {
+            if (errno == EINTR) {
+                continue;  // Interrupted by signal, retry poll()
+            }
+            LOG_ERR("poll() failed: %s (errno %d)", STAT_ToString(STAT_MapErrno(errno)), errno);
+            m_fn_onReceive = nullptr;
+            return -P_EIO;  // Exit the run loop on poll error
+        }
+
+        /* Handle ready sockets. Nothing is erased from the map until this loop is done, so
+           str_Connection stays valid even while the handler runs */
+        std::vector<NetConnId_t> vec_ConnsToClose;
+        for (size_t siz_I = 0; siz_I < vec_PollFds.size(); ++siz_I) {
+            const pollfd&     str_PollFd = vec_PollFds[siz_I];
+            const NetConnId_t u64_ConnId = vec_PollIds[siz_I];
+            if (str_PollFd.revents == 0) {
+                continue;  // No events for this socket, skip to the next one
+            }
+            if (u64_ConnId == NET_LISTEN_ID) {
+                acceptConnections();
+                continue;  // New clients join the poll list next round
             }
 
-            /* Handle ready sockets. Nothing is erased from the map until this loop is done, so
-             * str_Connection stays valid even while the handler runs */
-            std::vector<NetConnId_t> vec_ConnsToClose;
-            for (size_t i = 0; i < vec_PollFds.size(); i++) {
-                
+            Connection& str_Connection = m_map_connections.at(u64_ConnId);
+            bool        bol_KeepOpen   = (str_PollFd.revents & (POLLERR | POLLNVAL)) == 0;
+
+            /* Read if the data arrived (POLLIN) or the peer hung up (POLLHUP) */
+            if (bol_KeepOpen && !str_Connection.bol_CloseAfterWrite &&
+                (str_PollFd.revents & (POLLIN | POLLHUP)) != 0) {
+                const int int_Result = readFrom(u64_ConnId, str_Connection);
+                if (int_Result < 0) {
+                    LOG_DBG("client %" PRIu64 ": read failed: %s", u64_ConnId,
+                            STAT_ToString(-int_Result));
+                }
+                bol_KeepOpen = (int_Result == P_OK);
+            }
+
+            /* Write to client if there's data in the write buffer */
+            if (bol_KeepOpen && !str_Connection.sz_WriteBuffer.empty()) {
+                const int int_Result = writeTo(u64_ConnId, str_Connection);
+                if (int_Result < 0) {
+                    LOG_DBG("client %" PRIu64 ": write failed: %s", u64_ConnId,
+                            STAT_ToString(-int_Result));
+                }
+                bol_KeepOpen = (int_Result == P_OK);
+            }
+
+            /* Close once everything is sent, if the peer has closed its side or we were asked to
+               close after writing */
+            if (bol_KeepOpen &&
+                (str_Connection.bol_PeerClosed || str_Connection.bol_CloseAfterWrite) &&
+                str_Connection.sz_WriteBuffer.empty()) {
+                bol_KeepOpen = false;
+            }
+            if (!bol_KeepOpen) {
+                vec_ConnsToClose.push_back(u64_ConnId);
             }
         }
+
+        /* Erase only now, after the loop above no longer holds references into the map */
+        for (const NetConnId_t u64_ConnIdToClose : vec_ConnsToClose) {
+            closeFinishedConnections(u64_ConnIdToClose);
+        }
     }
+
+    m_fn_onReceive = nullptr;
+    return P_OK;
 }
 
 void TcpServer::stop() {
@@ -224,14 +280,15 @@ void TcpServer::acceptConnections() {
         if (int_Res < 0) {
             LOG_ERR("fcntl() on client fd %d failed: %s (errno %d)", fd_Client,
                     STAT_ToString(-int_Res), errno);
-            return;  // obj_Client closes the fd when it goes out of scope.
+            return;
         }
 
-        /* Successfully accepted and configured a new client socket */
-        Connection str_Connection;
+        /* Successfully accepted and configured: give it a fresh id */
+        const NetConnId_t u64_ConnId = m_u64_nextConnId++;
+        Connection        str_Connection;
         str_Connection.obj_Socket = std::move(obj_Client);
-        m_map_connections.emplace(fd_Client, std::move(str_Connection));
-        LOG_DBG("client fd %d connected", fd_Client);
+        m_map_connections.emplace(u64_ConnId, std::move(str_Connection));
+        LOG_DBG("client %" PRIu64 " connected (fd %d)", u64_ConnId, fd_Client);
     }
 }
 
